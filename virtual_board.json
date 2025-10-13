@@ -1,0 +1,12 @@
+{
+  "cmd": {
+    "connect": {
+      "timeout": 3,
+      "status": "Connecting..."
+    },
+    "disconnect": {
+      "timeout": 3,
+      "status": "Disconnecting..."
+    }
+  }
+}
