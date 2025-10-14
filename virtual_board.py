@@ -1,61 +1,54 @@
-import threading
 import time
 
-from PySide6.QtCore import QObject, Signal
+from board import Board
+from protocol import CMD_CONNECT, CMD_DISCONNECT
 
-from protocol import Protocol, CMD_CONNECT, CMD_DISCONNECT
-
-class Board(QObject):
-  on_status = Signal(str)
-  on_error = Signal(str)
-  on_connect = Signal()
-
-  connected = False
-
-  _cmd = None
-  _protocol = Protocol("virtual_board.json")
+class VirtualBoard(Board):
+  virtual = True
 
   def __init__(self):
-    super().__init__()
-
-    self.thread = threading.Thread(target=self._loop, daemon=True)
-    self.thread.start()
+    super().__init__(\
+      {
+        "commands": {
+          CMD_CONNECT: {
+            "timeout": 3
+          },
+          CMD_DISCONNECT: {
+            "timeout": 3
+          }
+        }
+      }
+    )
 
   def port(self):
     return "VIRTUAL"
 
-  def toggle_connection(self):
-    if self.connected:
-      self._cmd = CMD_DISCONNECT
-    else:
-      self._cmd = CMD_CONNECT
-
-  def _loop(self):
+  def loop(self):
     while True:
       time.sleep(0.001)
       try:
-        if not self._cmd:
+        if not self.cmd:
           continue
 
-        cmd = self._protocol.get_cmd(self._cmd)
+        print("Command: " + self.cmd)
+        cmd = self.protocol.get_cmd(self.cmd)
         if cmd.status:
           self.on_status.emit(cmd.status)
         if cmd.timeout > 0:
           time.sleep(cmd.timeout)
         if cmd.status:
           self.on_status.emit(None)
-        if self._cmd == CMD_CONNECT:
+        if self.cmd == CMD_CONNECT:
           self.connected = True
           self.on_connect.emit()
-        elif self._cmd == CMD_DISCONNECT:
+        elif self.cmd == CMD_DISCONNECT:
           self.connected = False
           self.on_connect.emit()
 
-        self._cmd = None
-
       except Exception as e:
-        self._cmd = None
-        self.on_error.emit(str(e))
+        self.on_error.emit(self.cmd, str(e))
+      finally:
+        self.cmd = None
 
   def debug_simulate_disconnection(self):
     if not self.connected:

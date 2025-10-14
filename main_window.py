@@ -47,7 +47,9 @@ class MainWindow(QMainWindow):
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
-      self._a("Simulate disconnection", self.board.debug_simulate_disconnection, m)
+
+      if self.board.port() == "VIRTUAL":
+        self._a("Simulate disconnection", self.board.debug_simulate_disconnection, m)
 
     m = self.menuBar().addMenu('Help')
     self._a("About", self.show_about, m)
@@ -82,17 +84,20 @@ class MainWindow(QMainWindow):
       print(msg)
     self.status_label.setText(msg)
 
-  def show_board_error(self, msg):
+  def show_board_error(self, cmd, msg):
+    self.status_label.setText(None)
+    print(f"Failed to process command {cmd}: {msg}")
     QMessageBox.critical(self, APP_NAME, msg)
 
   def show_board_connection(self):
     if self.board.connected:
       self.connect_label.setPixmap(self.connect_on_pxm)
       self.connect_action.setText("Disconnect")
-      self.port_label.setText("Connected: " + self.board.port())
-      print("Connected " + self.board.port())
+      msg = f"{self.board.port()} connected"
     else:
       self.connect_label.setPixmap(self.connect_off_pxm)
       self.connect_action.setText("Connect")
-      self.port_label.setText("Disconnected")
-      print("Disconnected")
+      msg = f"{self.board.port()} disconnected"
+    self.status_label.setText(None)
+    self.port_label.setText(msg)
+    print(msg)

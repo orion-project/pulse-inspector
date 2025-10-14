@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 
@@ -15,3 +16,13 @@ def app_dir(file_name = None) -> str:
 
 def load_icon(icon_file) -> QIcon:
   return QIcon(os.path.join(app_dir(), 'img', icon_file))
+
+def load_json(file_name) -> dict:
+  fn = app_dir(file_name)
+  if not os.path.exists(fn):
+    raise Exception(f"File not found: {fn}")
+  with open(fn, 'r') as f:
+    try:
+      return json.load(f)
+    except Exception as e:
+      raise Exception(f"Failed to parse file {fn}: {e}")

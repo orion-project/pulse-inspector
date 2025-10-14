@@ -1,36 +1,35 @@
-import json
-import os
+from utils import load_json
 
-from utils import app_dir
+CMD_CONNECT = "CONNECT"
+CMD_DISCONNECT = "DISCONNECT"
 
-CMD_CONNECT = "connect"
-CMD_DISCONNECT = "disconnect"
+def get_cmd_status(name):
+    if name == CMD_CONNECT:
+      return "Connecting..."
+    if name == CMD_DISCONNECT:
+      return "Disconnecting..."
+    return None
 
 ###########################################
 
 class Command:
-  def __init__(self, spec):
+  def __init__(self, name, spec):
+    self.name = name
     self.timeout = spec.get("timeout", 0)
     self.status = spec.get("status")
+    if not self.status:
+      self.status = get_cmd_status(name)
 
 ###########################################
 
 class Protocol:
-  _data = {}
+  data = {}
 
-  def __init__(self, file_name):
-
-    fn = app_dir(file_name)
-    if not os.path.exists(fn):
-      raise Exception(f"File not found: {fn}")
-    with open(fn, 'r') as f:
-      try:
-        self._data = json.load(f)
-      except Exception as e:
-        raise Exception(f"Failed to parse protocol file {fn}: {e}")
+  def __init__(self, src):
+    self.data = src if isinstance(src, dict) else load_json(src)
 
   def get_cmd(self, cmd) -> Command:
-    cmd_spec = self._data.get("cmd").get(cmd)
-    if not cmd_spec:
+    spec = self.data.get("commands").get(cmd)
+    if not spec:
       raise Exception(f"Command not found: {cmd}")
-    return Command(cmd_spec)
+    return Command(cmd, spec)

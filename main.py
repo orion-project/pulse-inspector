@@ -11,6 +11,7 @@ from utils import load_icon
 def main():
   parser = argparse.ArgumentParser(description=APP_NAME)
   parser.add_argument('--dev', action='store_true', help='Enable development mode')
+  parser.add_argument('--virtual', action='store_true', help='Use virtual board')
   args = parser.parse_args()
 
   app = QApplication(sys.argv)
@@ -20,9 +21,12 @@ def main():
 
   board = None
   try:
-    if True:
-      from virtual_board import Board
-      board = Board()
+    if args.virtual:
+      from virtual_board import VirtualBoard
+      board = VirtualBoard()
+    else:
+      from serial_board import SerialBoard
+      board = SerialBoard()
   except Exception as e:
     print(f"Error board initialization: {e}")
     QMessageBox.critical(None, APP_NAME, f"Error board initialization: {e}")
