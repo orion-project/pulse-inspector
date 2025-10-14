@@ -35,24 +35,20 @@ class VirtualBoard(Board):
 
         log.info("Command: " + self.cmd)
         cmd = self.config.get_cmd(self.cmd)
-        if cmd.status:
-          self.on_status.emit(cmd.status)
+        self.on_command_beg.emit(self.cmd)
         if cmd.timeout > 0:
           time.sleep(cmd.timeout)
-        if cmd.status:
-          self.on_status.emit(None)
         if self.cmd == CMD_CONNECT:
           log.info("Connected")
           self.connected = True
-          self.on_connect.emit()
         elif self.cmd == CMD_DISCONNECT:
           log.info("Disconnected")
           self.connected = False
-          self.on_connect.emit()
+        self.on_command_end.emit(self.cmd, None)
 
       except Exception as e:
         log.exception(f"Failed to process command {self.cmd}")
-        self.on_error.emit(str(e))
+        self.on_command_end.emit(self.cmd, str(e))
       finally:
         self.cmd = None
 
@@ -61,5 +57,4 @@ class VirtualBoard(Board):
       return
     log.info("Force connection interrupt")
     self.connected = False
-    self.on_error.emit("Connection interrupted")
-    self.on_connect.emit()
+    self.on_command_end.emit(CMD_DISCONNECT, "Connection interrupted")

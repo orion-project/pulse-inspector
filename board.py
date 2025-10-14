@@ -6,9 +6,8 @@ from config import Config
 from consts import CMD_CONNECT, CMD_DISCONNECT
 
 class Board(QObject):
-  on_status = Signal(str)
-  on_error = Signal(str)
-  on_connect = Signal()
+  on_command_beg = Signal(str)
+  on_command_end = Signal(str, str)
 
   connected = False
   cmd = None

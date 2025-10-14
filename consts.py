@@ -10,3 +10,10 @@ def get_cmd_status(name):
   if name == CMD_DISCONNECT:
     return "Disconnecting..."
   return None
+
+def get_cmd_run_text(cmd):
+  if cmd == CMD_CONNECT:
+    return "Connecting..."
+  if cmd == CMD_DISCONNECT:
+    return "Disconnecting..."
+  return cmd.title() + "..."

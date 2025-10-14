@@ -3,7 +3,7 @@ import logging
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar
 
-from consts import APP_NAME, APP_VERSION
+from consts import APP_NAME, APP_VERSION, CMD_CONNECT, CMD_DISCONNECT, get_cmd_run_text
 from utils import load_icon
 
 log = logging.getLogger(__name__)
@@ -25,14 +25,14 @@ class MainWindow(QMainWindow):
     self.dev_mode = dev_mode
 
     self.board = board
-    self.board.on_status.connect(self.show_board_status)
-    self.board.on_error.connect(self.show_board_error)
-    self.board.on_connect.connect(self.show_board_connection)
+    self.board.on_command_beg.connect(self.board_command_beg)
+    self.board.on_command_end.connect(self.board_command_end)
 
     self.create_menu_bar()
     self.create_status_bar()
 
     self.show_board_connection()
+    self.update_actions()
 
   def _a(self, title, handler, menu, **kwargs):
     a = QAction(title, self)
@@ -83,23 +83,32 @@ class MainWindow(QMainWindow):
   def show_about_qt(self):
     QMessageBox.aboutQt(self, APP_NAME)
 
-  def show_board_status(self, msg):
-    if msg:
-      log.info(msg)
+  def board_command_beg(self, cmd):
+    msg = get_cmd_run_text(cmd)
+    log.info(msg)
+    self.update_actions()
     self.status_label.setText(msg)
+    if cmd == CMD_CONNECT or cmd == CMD_DISCONNECT:
+      self.connect_action.setEnabled(False)
 
-  def show_board_error(self, msg):
+  def board_command_end(self, cmd, err):
+    self.update_actions()
     self.status_label.setText(None)
-    QMessageBox.critical(self, APP_NAME, msg)
+    if cmd == CMD_CONNECT or cmd == CMD_DISCONNECT:
+      self.connect_action.setEnabled(True)
+      self.show_board_connection()
+    if err:
+      QMessageBox.critical(self, APP_NAME, err)
 
   def show_board_connection(self):
     if self.board.connected:
       self.connect_label.setPixmap(self.connect_on_pxm)
       self.connect_action.setText("Disconnect")
-      msg = f"{self.board.port()} connected"
+      self.port_label.setText(f"{self.board.port()} connected")
     else:
       self.connect_label.setPixmap(self.connect_off_pxm)
       self.connect_action.setText("Connect")
-      msg = f"{self.board.port()} disconnected"
-    self.status_label.setText(None)
-    self.port_label.setText(msg)
+      self.port_label.setText(f"{self.board.port()} disconnected")
+
+  def update_actions(self):
+    pass

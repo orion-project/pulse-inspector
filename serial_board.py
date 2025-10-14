@@ -4,7 +4,7 @@ import time
 import logging
 
 from board import Board
-from consts import get_cmd_status, CMD_CONNECT, CMD_DISCONNECT
+from consts import CMD_CONNECT, CMD_DISCONNECT
 
 log = logging.getLogger(__name__)
 
@@ -31,16 +31,16 @@ class SerialBoard(Board):
           continue
 
         log.info("Command: " + self.cmd)
+        self.on_command_beg.emit(self.cmd)
         if self.cmd == CMD_CONNECT:
-          self.on_status.emit(get_cmd_status(self.cmd))
           self._connect()
         elif self.cmd == CMD_DISCONNECT:
-          self.on_status.emit(get_cmd_status(self.cmd))
           self._disconnect()
+        self.on_command_end.emit(self.cmd, None)
 
       except Exception as e:
         log.exception(f"Failed to process command {self.cmd}")
-        self.on_error.emit(str(e))
+        self.on_command_end.emit(self.cmd, str(e))
       finally:
         self.cmd = None
 
@@ -51,14 +51,12 @@ class SerialBoard(Board):
     baudrate = self.config.value("connection/baudrate")
     timeout = self.config.value("connection/timeout")
     self.uart = serial.Serial(port, baudrate=baudrate, timeout=timeout)
-    log.info(f"Connected to {port} at {baudrate}")
     self.connected = True
-    self.on_connect.emit()
+    log.info(f"Connected to {port} at {baudrate}")
 
   def _disconnect(self):
     if self.uart and self.uart.is_open:
       self.uart.close()
     self.uart = None
-    log.info(f"Disconnected {self.port()}")
     self.connected = False
-    self.on_connect.emit()
+    log.info(f"Disconnected {self.port()}")

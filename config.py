@@ -1,15 +1,9 @@
 from configobj import ConfigObj
 
-from consts import get_cmd_status
-
 class Command:
   def __init__(self, name, spec):
     self.name = name
     self.timeout = spec.get("timeout", 0)
-    self.status = spec.get("status")
-    if not self.status:
-      self.status = get_cmd_status(name)
-
 
 class Config:
   _data: ConfigObj
