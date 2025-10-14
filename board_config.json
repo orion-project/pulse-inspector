@@ -1,9 +1,0 @@
-{
-  "connection": {
-    "port": "",
-    "timeout": 1,
-    "baudrate": 115200
-  },
-  "commands": {
-  }
-}

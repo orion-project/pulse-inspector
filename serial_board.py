@@ -3,7 +3,8 @@ import serial.tools.list_ports
 import time
 import logging
 
-from board import Board, CMD_CONNECT, CMD_DISCONNECT, get_cmd_status
+from board import Board
+from consts import get_cmd_status, CMD_CONNECT, CMD_DISCONNECT
 
 log = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ class SerialBoard(Board):
   uart: serial.Serial = None
 
   def __init__(self):
-    super().__init__("board_config.json")
+    super().__init__("board_config.ini")
 
   def port(self):
     port = self.config.value("connection/port")
@@ -58,5 +59,6 @@ class SerialBoard(Board):
     if self.uart and self.uart.is_open:
       self.uart.close()
     self.uart = None
+    log.info(f"Disconnected {self.port()}")
     self.connected = False
     self.on_connect.emit()

@@ -1,7 +1,8 @@
 import logging
 import time
 
-from board import Board, CMD_CONNECT, CMD_DISCONNECT
+from board import Board
+from consts import CMD_CONNECT, CMD_DISCONNECT
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +42,11 @@ class VirtualBoard(Board):
         if cmd.status:
           self.on_status.emit(None)
         if self.cmd == CMD_CONNECT:
+          log.info("Connected")
           self.connected = True
           self.on_connect.emit()
         elif self.cmd == CMD_DISCONNECT:
+          log.info("Disconnected")
           self.connected = False
           self.on_connect.emit()
 
