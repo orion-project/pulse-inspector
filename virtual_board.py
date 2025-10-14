@@ -2,23 +2,25 @@ import logging
 import time
 
 from board import Board
-from consts import CMD_CONNECT, CMD_DISCONNECT
+from consts import CMD_CONNECT, CMD_DISCONNECT, CMD_HOME, CMD_STOP
 
 log = logging.getLogger(__name__)
 
 class VirtualBoard(Board):
   virtual = True
 
+  _cmd_start = 0
+  _cmd_duration = 0
+  _cmd_error = None
+
   def __init__(self):
     super().__init__(\
       {
         "commands": {
-          CMD_CONNECT: {
-            "timeout": 3
-          },
-          CMD_DISCONNECT: {
-            "timeout": 3
-          }
+          CMD_CONNECT: { "timeout": 0.5 },
+          CMD_DISCONNECT: { "timeout": 0.5 },
+          CMD_HOME: { "timeout": 5 },
+          CMD_STOP: { "timeout": 0.5 }
         }
       }
     )
@@ -29,32 +31,61 @@ class VirtualBoard(Board):
   def loop(self):
     while True:
       time.sleep(0.001)
-      try:
-        if not self.cmd:
-          continue
 
-        log.info("Command: " + self.cmd)
-        cmd = self.config.get_cmd(self.cmd)
-        self.on_command_beg.emit(self.cmd)
-        if cmd.timeout > 0:
-          time.sleep(cmd.timeout)
-        if self.cmd == CMD_CONNECT:
-          log.info("Connected")
-          self.connected = True
-        elif self.cmd == CMD_DISCONNECT:
-          log.info("Disconnected")
-          self.connected = False
-        self.on_command_end.emit(self.cmd, None)
+      self._lock.acquire()
+      cancel = self._cancel_cmd
+      next_cmd = self._next_cmd
+      self._lock.release()
+
+      try:
+        # A command in progress
+        if self._cmd_start > 0:
+          # There are some commands that can cancel
+          # other commands without finishing them
+          if cancel:
+            log.info(f"cancel:{self._cmd}")
+          else:
+            elapsed = time.perf_counter() - self._cmd_start
+            if elapsed >= self._cmd_duration:
+              self._finish_cmd(None)
+            continue
+
+        if self._cmd_error:
+          err = self._cmd_error
+          self._cmd_error = None
+          raise Exception(err)
+
+        if next_cmd:
+          self._lock.acquire()
+          self._next_cmd = None
+          self._cancel_cmd = False
+          self._lock.release()
+
+          self._cmd = next_cmd
+          log.info(f"begin:{self._cmd}")
+          cmd = self.config.cmd_spec(self._cmd)
+          self.on_command_beg.emit(self._cmd)
+          self._cmd_start = time.perf_counter()
+          self._cmd_duration = cmd.timeout
 
       except Exception as e:
-        log.exception(f"Failed to process command {self.cmd}")
-        self.on_command_end.emit(self.cmd, str(e))
-      finally:
-        self.cmd = None
+        log.exception(f"error:{self._cmd}")
+        self._finish_cmd(str(e))
+
+  def _finish_cmd(self, err):
+    self._cmd_start = 0
+    self._cmd_duration = 0
+    self.finish_cmd(log, err)
 
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
-    log.info("Force connection interrupt")
-    self.connected = False
-    self.on_command_end.emit(CMD_DISCONNECT, "Connection interrupted")
+    self._cmd = CMD_DISCONNECT
+    self._cmd_error = "Connection interrupted"
+    self._cancel_cmd = True
+
+  def debug_simulate_command_error(self):
+    if not self.connected:
+      return
+    self._cmd_error = "Something did not go"
+    self._cancel_cmd = True

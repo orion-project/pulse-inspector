@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
   # Actions
   connect_action: QAction
+  home_action: QAction
+  stop_action: QAction
 
   # Status bar
   connect_label: QLabel
@@ -47,6 +49,9 @@ class MainWindow(QMainWindow):
     m = self.menuBar().addMenu("Board")
     self.connect_action = self._a("Connect", self.board.toggle_connection, m)
     m.addSeparator()
+    self.home_action = self._a("Home", self.board.go_home, m, hotkey="Ctrl+H")
+    self.stop_action = self._a("Stop", self.board.stop_move, m, hotkey="Ctrl+B")
+    m.addSeparator()
     self._a("Exit", self.close, m, hotkey="Ctrl+Q")
 
     if self.dev_mode:
@@ -54,6 +59,7 @@ class MainWindow(QMainWindow):
 
       if self.board.port() == "VIRTUAL":
         self._a("Simulate disconnection", self.board.debug_simulate_disconnection, m)
+        self._a("Simulate command error", self.board.debug_simulate_command_error, m)
 
     m = self.menuBar().addMenu('Help')
     self._a("About", self.show_about, m)
@@ -88,14 +94,11 @@ class MainWindow(QMainWindow):
     log.info(msg)
     self.update_actions()
     self.status_label.setText(msg)
-    if cmd == CMD_CONNECT or cmd == CMD_DISCONNECT:
-      self.connect_action.setEnabled(False)
 
   def board_command_end(self, cmd, err):
     self.update_actions()
     self.status_label.setText(None)
     if cmd == CMD_CONNECT or cmd == CMD_DISCONNECT:
-      self.connect_action.setEnabled(True)
       self.show_board_connection()
     if err:
       QMessageBox.critical(self, APP_NAME, err)
@@ -111,4 +114,6 @@ class MainWindow(QMainWindow):
       self.port_label.setText(f"{self.board.port()} disconnected")
 
   def update_actions(self):
-    pass
+    self.connect_action.setEnabled(self.board.can_connect)
+    self.home_action.setEnabled(self.board.can_home)
+    self.stop_action.setEnabled(self.board.can_stop)

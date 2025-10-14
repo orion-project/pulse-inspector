@@ -16,7 +16,7 @@ class Config:
       self._file_name = src
       self._data = ConfigObj(src)
 
-  def get_cmd(self, cmd) -> Command:
+  def cmd_spec(self, cmd) -> Command:
     spec = self._data.get("commands", {}).get(cmd)
     if not spec:
       raise Exception(f"Command not found: {cmd}")
