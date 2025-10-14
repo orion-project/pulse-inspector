@@ -1,7 +1,9 @@
+import logging
 import time
 
-from board import Board
-from protocol import CMD_CONNECT, CMD_DISCONNECT
+from board import Board, CMD_CONNECT, CMD_DISCONNECT
+
+log = logging.getLogger(__name__)
 
 class VirtualBoard(Board):
   virtual = True
@@ -30,8 +32,8 @@ class VirtualBoard(Board):
         if not self.cmd:
           continue
 
-        print("Command: " + self.cmd)
-        cmd = self.protocol.get_cmd(self.cmd)
+        log.info("Command: " + self.cmd)
+        cmd = self.config.get_cmd(self.cmd)
         if cmd.status:
           self.on_status.emit(cmd.status)
         if cmd.timeout > 0:
@@ -46,14 +48,15 @@ class VirtualBoard(Board):
           self.on_connect.emit()
 
       except Exception as e:
-        self.on_error.emit(self.cmd, str(e))
+        log.exception(f"Failed to process command {self.cmd}")
+        self.on_error.emit(str(e))
       finally:
         self.cmd = None
 
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
-    print("[Debug] Connection interrupt")
+    log.info("Force connection interrupt")
     self.connected = False
     self.on_error.emit("Connection interrupted")
     self.on_connect.emit()

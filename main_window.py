@@ -1,8 +1,12 @@
+import logging
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar
 
 from consts import APP_NAME, APP_VERSION
 from utils import load_icon
+
+log = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
   # Actions
@@ -81,12 +85,11 @@ class MainWindow(QMainWindow):
 
   def show_board_status(self, msg):
     if msg:
-      print(msg)
+      log.info(msg)
     self.status_label.setText(msg)
 
-  def show_board_error(self, cmd, msg):
+  def show_board_error(self, msg):
     self.status_label.setText(None)
-    print(f"Failed to process command {cmd}: {msg}")
     QMessageBox.critical(self, APP_NAME, msg)
 
   def show_board_connection(self):
@@ -100,4 +103,3 @@ class MainWindow(QMainWindow):
       msg = f"{self.board.port()} disconnected"
     self.status_label.setText(None)
     self.port_label.setText(msg)
-    print(msg)
