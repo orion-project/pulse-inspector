@@ -9,8 +9,6 @@ log = logging.getLogger(__name__)
 class VirtualBoard(Board):
   virtual = True
 
-  _cmd_start = 0
-  _cmd_duration = 0
   _cmd_error = None
 
   def __init__(self):
@@ -33,8 +31,8 @@ class VirtualBoard(Board):
       time.sleep(0.001)
 
       self._lock.acquire()
-      cancel = self._cancel_cmd
       next_cmd = self._next_cmd
+      cancel = self._cancel_cmd
       self._lock.release()
 
       try:
@@ -46,8 +44,8 @@ class VirtualBoard(Board):
             log.info(f"cancel:{self._cmd}")
           else:
             elapsed = time.perf_counter() - self._cmd_start
-            if elapsed >= self._cmd_duration:
-              self._finish_cmd(None)
+            if elapsed >= self._cmd_timeout:
+              self._end_command(log, None)
             continue
 
         if self._cmd_error:
@@ -66,16 +64,11 @@ class VirtualBoard(Board):
           cmd = self.config.cmd_spec(self._cmd)
           self.on_command_beg.emit(self._cmd)
           self._cmd_start = time.perf_counter()
-          self._cmd_duration = cmd.timeout
+          self._cmd_timeout = cmd.timeout
 
       except Exception as e:
         log.exception(f"error:{self._cmd}")
-        self._finish_cmd(str(e))
-
-  def _finish_cmd(self, err):
-    self._cmd_start = 0
-    self._cmd_duration = 0
-    self.finish_cmd(log, err)
+        self._end_command(log, str(e))
 
   def debug_simulate_disconnection(self):
     if not self.connected:

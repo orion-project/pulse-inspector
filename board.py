@@ -12,6 +12,8 @@ class Board(QObject):
   _cmd = None
   _next_cmd = None
   _cancel_cmd = False
+  _cmd_start = 0
+  _cmd_timeout = 0
 
   connected = False
   homed = False
@@ -57,8 +59,8 @@ class Board(QObject):
     self.homed = False
     self._disable_all()
     self.can_connect = True
-    self.can_home = True
-    self.can_move_rel = True
+    self.can_home = ok
+    self.can_move_rel = ok
 
   def _disconnect_done(self):
     self.connected = False
@@ -105,7 +107,7 @@ class Board(QObject):
     self.can_home = True
     self.can_move_abs = self.homed
 
-  def finish_cmd(self, log, err):
+  def _end_command(self, log, err):
     if not err:
       log.info(f"end:{self._cmd}")
     self._lock.acquire()
@@ -122,3 +124,5 @@ class Board(QObject):
       self._lock.release()
     self.on_command_end.emit(self._cmd, err)
     self._cmd = None
+    self._cmd_start = 0
+    self._cmd_timeout = 0

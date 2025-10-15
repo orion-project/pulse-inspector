@@ -1,9 +1,34 @@
 from configobj import ConfigObj
 
+def _convert(val):
+  # Without config spec all values are strings by default
+  # Try to convert string values to appropriate types
+  if isinstance(val, str):
+    if val.isdigit() or (val.startswith('-') and val[1:].isdigit()):
+      return int(val)
+    try:
+      return float(val)
+    except ValueError:
+      pass
+  return val
+
+
 class Command:
-  def __init__(self, name, spec):
+  name: str
+  timeout: float
+
+  def __init__(self, name, specs):
+    spec = specs.get(name)
+    if not spec:
+      raise KeyError(f"Command not found: {name}")
+
     self.name = name
-    self.timeout = spec.get("timeout", 0)
+
+    timeout = spec.get("timeout")
+    if not timeout:
+      timeout = specs.get("timeout", 1)
+    self.timeout = _convert(timeout)
+
 
 class Config:
   _data: ConfigObj
@@ -16,11 +41,12 @@ class Config:
       self._file_name = src
       self._data = ConfigObj(src)
 
-  def cmd_spec(self, cmd) -> Command:
-    spec = self._data.get("commands", {}).get(cmd)
-    if not spec:
-      raise Exception(f"Command not found: {cmd}")
-    return Command(cmd, spec)
+  def cmd_spec(self, name) -> Command:
+    specs = self._data.get("commands")
+    if not specs:
+      raise KeyError(f"Command not found: {name}")
+    cmd = Command(name, specs)
+    return cmd
 
   def value(self, path):
     val = self._data
@@ -28,16 +54,7 @@ class Config:
       if key not in val:
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
-    # Without config spec all values are strings by default
-    # Try to convert string values to appropriate types
-    if isinstance(val, str):
-      if val.isdigit() or (val.startswith('-') and val[1:].isdigit()):
-        return int(val)
-      try:
-        return float(val)
-      except ValueError:
-        pass
-    return val
+    return _convert(val)
 
   def set_value(self, path, value):
     keys = path.split("/")
