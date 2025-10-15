@@ -56,10 +56,8 @@ class MainWindow(QMainWindow):
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
-
-      if self.board.port() == "VIRTUAL":
-        self._a("Simulate disconnection", self.board.debug_simulate_disconnection, m)
-        self._a("Simulate command error", self.board.debug_simulate_command_error, m)
+      self._a("Simulate disconnection", self.board.debug_simulate_disconnection, m)
+      self._a("Simulate command error", self.board.debug_simulate_command_error, m)
 
     m = self.menuBar().addMenu('Help')
     self._a("About", self.show_about, m)
@@ -91,7 +89,7 @@ class MainWindow(QMainWindow):
 
   def board_command_beg(self, cmd):
     msg = get_cmd_run_text(cmd)
-    log.info(msg)
+    log.debug(msg)
     self.update_actions()
     self.status_label.setText(msg)
 

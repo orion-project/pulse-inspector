@@ -10,7 +10,7 @@ from main_window import MainWindow
 from utils import load_icon
 
 def main():
-  logging.basicConfig(level=logging.INFO)
+  logging.basicConfig(level=logging.DEBUG)
   log = logging.getLogger(__name__)
 
   parser = argparse.ArgumentParser(description=APP_NAME)

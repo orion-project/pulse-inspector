@@ -15,6 +15,7 @@ def _convert(val):
 
 class Command:
   name: str
+  serial_name: str
   timeout: float
 
   def __init__(self, name, specs):
@@ -23,6 +24,7 @@ class Command:
       raise KeyError(f"Command not found: {name}")
 
     self.name = name
+    self.serial_name = spec.get("serial_name")
 
     timeout = spec.get("timeout")
     if not timeout:
@@ -48,10 +50,12 @@ class Config:
     cmd = Command(name, specs)
     return cmd
 
-  def value(self, path):
+  def value(self, path, default = None):
     val = self._data
     for key in path.split("/"):
       if key not in val:
+        if default is not None:
+          return default
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
     return _convert(val)
@@ -67,5 +71,12 @@ class Config:
 
   def save(self):
     if not self._file_name:
-      raise Exception("Cannot save: no config file specified")
+      raise Exception("File name is not specified")
     self._data.write()
+
+  def error_text(self, err):
+    code = err.split(" ")[-1]
+    msg = self._data.get("errors", {}).get(code)
+    if not msg:
+      msg = f"error={code}"
+    return msg

@@ -5,6 +5,7 @@ CMD_CONNECT = "CONNECT"
 CMD_DISCONNECT = "DISCONNECT"
 CMD_HOME = "HOME"
 CMD_STOP = "STOP"
+CMD_ERROR = "ERROR"
 
 def get_cmd_run_text(cmd):
   if cmd == CMD_CONNECT:

@@ -7,8 +7,6 @@ from consts import CMD_CONNECT, CMD_DISCONNECT, CMD_HOME, CMD_STOP
 log = logging.getLogger(__name__)
 
 class VirtualBoard(Board):
-  virtual = True
-
   _cmd_error = None
 
   def __init__(self):
