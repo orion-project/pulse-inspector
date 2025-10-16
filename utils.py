@@ -15,7 +15,10 @@ def app_dir(file_name = None) -> str:
   return _APP_DIR
 
 def load_icon(icon_file) -> QIcon:
-  return QIcon(os.path.join(app_dir(), 'img', icon_file))
+  fn = icon_file
+  if not fn.endswith(".svg") and not fn.endswith(".png"):
+    fn += ".svg"
+  return QIcon(os.path.join(app_dir(), 'img', fn))
 
 def load_json(file_name) -> dict:
   fn = app_dir(file_name)

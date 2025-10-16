@@ -84,8 +84,6 @@ void loop() {
     if (newCmd == CMD_ERROR) {
       endCommand(false);
       sendError(ERR_UNKNOWN);
-      lcd.setCursor(0, 1);
-      lcd.print("ERROR");
       return;
     }
     // STOP command can interrupt other commands

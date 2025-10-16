@@ -1,7 +1,7 @@
 import sys
 import argparse
 import logging
-
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMessageBox
 
@@ -22,6 +22,7 @@ def main():
   app.setStyle("fusion")
   app.setWindowIcon(load_icon("main.png"))
   app.setStyleSheet("QWidget { font-size: 14px }")
+  app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
   board = None
   try:
