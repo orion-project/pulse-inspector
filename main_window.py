@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar
+from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton
 
 from consts import APP_NAME, APP_VERSION, CMD_CONNECT, CMD_DISCONNECT, get_cmd_run_text
 from plot import Plot
@@ -10,16 +10,6 @@ from utils import load_icon
 log = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
-  # Actions
-  connect_action: QAction
-  home_action: QAction
-  stop_action: QAction
-
-  # Status bar
-  connect_label: QLabel
-  port_label: QLabel
-  status_label: QLabel
-
   def __init__(self, board, dev_mode=False):
     super().__init__()
 
@@ -56,10 +46,21 @@ class MainWindow(QMainWindow):
     self.connect_icon = load_icon("connect")
     self.disconnect_icon = load_icon("disconnect")
     m.addSeparator()
-    self.home_action = self._a("Home", self.board.go_home, m, hotkey="Ctrl+H", icon="home")
-    self.stop_action = self._a("Stop", self.board.stop_move, m, hotkey="Ctrl+B", icon="stop")
+    self.home_action = self._a("Home", self.board.home, m, hotkey="Ctrl+H", icon="home")
+    self.jog_backward_fast_action = self._a("Jog Backward (fast)", self.board.move, m, hotkey="Ctrl+Shift+Left", icon="jog_left_2")
+    self.jog_backward_action = self._a("Jog Backward", self.board.move, m, hotkey="Ctrl+Left", icon="jog_left")
+    self.move_action = self._a("Go To Position", self.board.move, m, hotkey="Ctrl+G", icon="walk")
+    self.jog_forward_action = self._a("Jog Forward", self.board.move, m, hotkey="Ctrl+Right", icon="jog_right")
+    self.jog_forward_fast_action = self._a("Jog Forward (fast)", self.board.move, m, hotkey="Ctrl+Shift+Right", icon="jog_right_2")
+    self.stop_action = self._a("Stop", self.board.stop, m, hotkey="Ctrl+B", icon="stop")
     m.addSeparator()
     self._a("Exit", self.close, m, hotkey="Ctrl+Q")
+
+    m = self.menuBar().addMenu("Measurement")
+    self.measure_single_action = self._a("Single", self.board.move, m, hotkey="Ctrl+M", icon="photo")
+    self.measure_single_action.setToolTip("Single Measurement")
+    self.measure_cont_action = self._a("Continuous", self.board.move, m, hotkey="Ctrl+Shift+M", icon="video")
+    self.measure_cont_action.setToolTip("Continuous Measurement")
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
@@ -75,11 +76,24 @@ class MainWindow(QMainWindow):
     tool_bar.setIconSize(QSize(40, 40))
     tool_bar.setMovable(False)
     tool_bar.setFloatable(False)
-    self.addToolBar(Qt.LeftToolBarArea, tool_bar)
+    self.addToolBar(Qt.TopToolBarArea, tool_bar)
+
+    self.position_button = QToolButton()
+    self.position_button.setText("28.5")
+    self.position_button.setToolTip("Current Position")
 
     tool_bar.addAction(self.connect_action)
     tool_bar.addSeparator()
     tool_bar.addAction(self.home_action)
+    tool_bar.addAction(self.jog_backward_fast_action)
+    tool_bar.addAction(self.jog_backward_action)
+    tool_bar.addWidget(self.position_button)
+    tool_bar.addAction(self.jog_forward_action)
+    tool_bar.addAction(self.jog_forward_fast_action)
+    tool_bar.addSeparator()
+    tool_bar.addAction(self.measure_single_action)
+    tool_bar.addAction(self.measure_cont_action)
+    tool_bar.addSeparator()
     tool_bar.addAction(self.stop_action)
 
   def create_status_bar(self):
@@ -141,3 +155,13 @@ class MainWindow(QMainWindow):
     self.connect_action.setEnabled(self.board.can_connect)
     self.home_action.setEnabled(self.board.can_home)
     self.stop_action.setEnabled(self.board.can_stop)
+    text_color = "#00547f" if self.board.can_move_abs else "gray"
+    self.position_button.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: {text_color};}}")
+    self.position_button.setEnabled(self.board.can_move_abs)
+    self.move_action.setEnabled(self.board.can_move_abs)
+    self.jog_forward_action.setEnabled(self.board.can_move_rel)
+    self.jog_forward_fast_action.setEnabled(self.board.can_move_rel)
+    self.jog_backward_action.setEnabled(self.board.can_move_rel)
+    self.jog_backward_fast_action.setEnabled(self.board.can_move_rel)
+    self.measure_single_action.setEnabled(self.board.can_move_abs)
+    self.measure_cont_action.setEnabled(self.board.can_move_abs)

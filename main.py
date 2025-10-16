@@ -21,7 +21,7 @@ def main():
   app = QApplication(sys.argv)
   app.setStyle("fusion")
   app.setWindowIcon(load_icon("main.png"))
-  app.setStyleSheet("QWidget { font-size: 14px }")
+  app.setStyleSheet("QWidget { font-size: 15px }")
   app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
   board = None

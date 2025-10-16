@@ -15,7 +15,7 @@ class VirtualBoard(Board):
         "commands": {
           CMD_CONNECT: { "timeout": 0.5 },
           CMD_DISCONNECT: { "timeout": 0.5 },
-          CMD_HOME: { "timeout": 5 },
+          CMD_HOME: { "timeout": 3 },
           CMD_STOP: { "timeout": 0.5 }
         }
       }

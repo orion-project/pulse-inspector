@@ -67,7 +67,7 @@ class Board(QObject):
     self._disable_all()
     self.can_connect = True
 
-  def go_home(self):
+  def home(self):
     self._lock.acquire()
     try:
       if not self.can_home:
@@ -80,7 +80,7 @@ class Board(QObject):
     finally:
       self._lock.release()
 
-  def _go_home_done(self, ok):
+  def _home_done(self, ok):
     self.homed = ok
     self._disable_all()
     self.can_connect = True
@@ -88,7 +88,7 @@ class Board(QObject):
     self.can_move_abs = ok
     self.can_move_rel = True
 
-  def stop_move(self):
+  def stop(self):
     self._lock.acquire()
     try:
       if not self.can_stop:
@@ -100,7 +100,7 @@ class Board(QObject):
     finally:
       self._lock.release()
 
-  def _stop_move_done(self):
+  def _stop_done(self):
     self._disable_all()
     self.can_connect = True
     self.can_home = True
@@ -116,12 +116,15 @@ class Board(QObject):
       elif self._cmd == CMD_DISCONNECT:
         self._disconnect_done()
       elif self._cmd == CMD_HOME:
-        self._go_home_done(not err)
+        self._home_done(not err)
       elif self._cmd == CMD_STOP:
-        self._stop_move_done()
+        self._stop_done()
     finally:
       self._lock.release()
     self.on_command_end.emit(self._cmd, err)
     self._cmd = None
     self._cmd_start = 0
     self._cmd_timeout = 0
+
+  def move(self):
+    pass

@@ -112,7 +112,7 @@ class Plot(FigureCanvas):
 
   def show_fit_params(self, fit_params):
     # TODO: calculate experimental (measured) profile FWHM
-    # TODO: calculate pulse duration from fit_params
+    # TODO: calculate pulse duration from autocorrelation profile
     # TODO: output as text on the plot in left-top corner:
     # TODO:   - Pulse duration (estimated)
     # TODO:   - Fit profile FWHM
