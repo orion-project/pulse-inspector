@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import sys
 
 from PySide6.QtGui import QIcon
 
@@ -9,7 +10,12 @@ _APP_DIR: str = None
 def app_dir(file_name = None) -> str:
   global _APP_DIR
   if not _APP_DIR:
-    _APP_DIR = pathlib.Path(__file__).resolve().parent
+    if getattr(sys, 'frozen', False):
+      # Running in a PyInstaller bundle
+      _APP_DIR = sys._MEIPASS
+    else:
+      # Running in dev Python environment
+      _APP_DIR = pathlib.Path(__file__).resolve().parent
   if file_name:
     return os.path.join(_APP_DIR, file_name)
   return _APP_DIR
