@@ -3,8 +3,10 @@
 
 #define CMD_NONE nullptr
 #define CMD_HOME "$H"
-#define CMD_HOME_DURATION 5000
+#define CMD_HOME_DURATION 2000
 #define CMD_STOP "$X"
+#define CMD_MOVE "$G"
+#define CMD_MOVE_DURATION 2000
 // Debug command for injecting errors into running commands
 // for testing how UI parses and displays command failures
 #define CMD_ERROR "$DE"
@@ -12,58 +14,33 @@
 #define ANS_OK "OK"
 #define ANS_ERR "ERR"
 #define ERR_OK 0
-#define ERR_UNKNOWN 100
-#define ERR_CMD_UNKNOWN 101
-#define ERR_CMD_RUNNIG 102
-#define ERR_CMD_FOOLISH 103
+#define ERR_UNKNOWN 100 // Unknown error
+#define ERR_CMD_UNKNOWN 101 // Unknown command
+#define ERR_CMD_RUNNIG 102 // Another command is already running
+#define ERR_CMD_FOOLISH 103 // Command is not applicable
+#define ERR_POS_LOST 104 // Position lost, homing required
+#define ERR_CMD_BAD_PARAM 105 // Invalid command parameter
 
 #define BAUD_RATE 115200
 
-#ifdef USE_LCD
-// On Uno R4 there is the warning "LiquidCrystal I2C claims to run on avr architecture" but it works fine
-#include <LiquidCrystal_I2C.h>
-#define SCREEN_W 16
-#define SCREEN_H 2
-LiquidCrystal_I2C lcd(0x27, SCREEN_W, SCREEN_H);
-#endif
-
 // Currently runnng command
-char* cmd = 0;
+char* cmd = CMD_NONE;
 unsigned long cmdStart = 0;
 unsigned long cmdDuration = 0;
+float cmdParam = 0;
 
-#ifdef USE_LCD
-void showCommand() {
-  char *msg = " ";
-  if (cmd == CMD_NONE) {
-    msg = "Ready";
-  } else if (cmd == CMD_HOME) {
-    msg = "Homing... ";
-  }
-  lcd.setCursor(0, 1);
-  lcd.print(msg);
-  for (int c = strlen(msg); c < SCREEN_W; c++) {
-    lcd.setCursor(c, 1);
-    lcd.write(' ');
-  }
-}
-#else
-// No operation
-#define showCommand()
-#endif
+// Stage position
+bool homed = false;
+float position = 0;
+
+// Include after global vars
+#include "lcd.h"
 
 void setup() {
   Serial.begin(BAUD_RATE);
   while (!Serial);
 
-#ifdef USE_LCD
-  lcd.init();
-  lcd.backlight();
-  lcd.begin(SCREEN_W, SCREEN_H);
-  lcd.setCursor(0, 0);
-  lcd.print("Pulse Inspector");
-  showCommand();
-#endif
+  showHello();
 }
 
 void loop() {
@@ -104,6 +81,16 @@ void loop() {
       cmd = CMD_HOME;
       cmdStart = millis();
       cmdDuration = CMD_HOME_DURATION;
+    } else if (newCmd.startsWith(CMD_MOVE)) {
+      if (!homed) {
+      // Current position unknown, can't move
+        sendError(ERR_POS_LOST);
+        return;
+      }
+      cmd = CMD_MOVE;
+      cmdStart = millis();
+      cmdDuration = CMD_MOVE_DURATION;
+      cmdParam = newCmd.substring(strlen(CMD_MOVE)+1).toFloat();
     } else {
       sendError(ERR_CMD_UNKNOWN);
       return;
@@ -119,12 +106,33 @@ void sendError(int code) {
 }
 
 void endCommand(bool ok) {
+  if (ok) {
+    Serial.print(ANS_OK);
+    if (cmd == CMD_HOME) {
+      homed = true;
+      position = 0;
+      showPosition();
+      Serial.print(' ');
+      Serial.print(position);
+    } else if (cmd == CMD_MOVE) {
+      position = cmdParam;
+      showPosition();
+      Serial.print(' ');
+      Serial.print(position);
+      Serial.println();
+    }
+    Serial.println();
+  } else {
+    if (cmd == CMD_HOME || cmd == CMD_MOVE) {
+      // Error during moving, position lost
+      homed = false;
+      position = 0;
+      showPosition();
+    }
+  }
   cmd = CMD_NONE;
   cmdStart = 0;
   cmdDuration = 0;
-  if (ok) {
-    Serial.println(ANS_OK);
-  }
   showCommand();
 }
 

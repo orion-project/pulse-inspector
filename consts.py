@@ -1,19 +1,25 @@
+from enum import Enum
+
 APP_NAME = "Pulse Inspector"
 APP_VERSION = "0.0.1"
 
-CMD_CONNECT = "CONNECT"
-CMD_DISCONNECT = "DISCONNECT"
-CMD_HOME = "HOME"
-CMD_STOP = "STOP"
-CMD_ERROR = "ERROR"
+class CMD(Enum):
+  connect = "CONNECT"
+  disconnect = "DISCONNECT"
+  home = "HOME"
+  stop = "STOP"
+  error = "ERROR"
+  move = "MOVE"
 
-def get_cmd_run_text(cmd):
-  if cmd == CMD_CONNECT:
+def get_cmd_run_text(cmd: CMD) -> str:
+  if cmd == CMD.connect:
     return "Connecting..."
-  if cmd == CMD_DISCONNECT:
+  if cmd == CMD.disconnect:
     return "Disconnecting..."
-  if cmd == CMD_HOME:
+  if cmd == CMD.home:
     return "Homing..."
-  if cmd == CMD_STOP:
+  if cmd == CMD.stop:
     return "Stopping..."
-  return cmd.title() + "..."
+  if cmd == CMD.move:
+    return "Moving..."
+  return cmd.value.title() + "..."

@@ -1,6 +1,12 @@
 import logging
 import numpy as np
 from scipy.optimize import curve_fit
+
+# There are tons of debug messages about found fonts
+# that makes the global DEBUG level totally useless
+logging.getLogger('matplotlib').level = logging.WARN
+logging.getLogger('matplotlib.font_manager').level = logging.WARN
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -12,11 +18,6 @@ log = logging.getLogger(__name__)
 
 class Plot(FigureCanvas):
   def __init__(self, parent=None, width=8, height=6, dpi=100):
-    # There are tons of debug messages about found fonts
-    # that make the DEBUG level totally useless
-    l = logging.getLogger('matplotlib.font_manager')
-    if l: l.disabled = True
-
     self.fig = Figure(figsize=(width, height), dpi=dpi)
     self.axes = self.fig.add_subplot(111)
     self.fig.tight_layout(pad=2.0, w_pad=1.0, h_pad=1.0)

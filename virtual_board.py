@@ -2,7 +2,7 @@ import logging
 import time
 
 from board import Board
-from consts import CMD_CONNECT, CMD_DISCONNECT, CMD_HOME, CMD_STOP
+from consts import CMD
 
 log = logging.getLogger(__name__)
 
@@ -10,13 +10,14 @@ class VirtualBoard(Board):
   _cmd_error = None
 
   def __init__(self):
-    super().__init__(\
+    super().__init__(log, \
       {
         "commands": {
-          CMD_CONNECT: { "timeout": 0.5 },
-          CMD_DISCONNECT: { "timeout": 0.5 },
-          CMD_HOME: { "timeout": 3 },
-          CMD_STOP: { "timeout": 0.5 }
+          CMD.connect: { "timeout": 0.5 },
+          CMD.disconnect: { "timeout": 0.5 },
+          CMD.home: { "timeout": 2 },
+          CMD.stop: { "timeout": 0.5 },
+          CMD.move: { "timeout": 2 },
         }
       }
     )
@@ -43,7 +44,8 @@ class VirtualBoard(Board):
           else:
             elapsed = time.perf_counter() - self._cmd_start
             if elapsed >= self._cmd_timeout:
-              self._end_command(log, None)
+              self._command_done()
+              self._end_command(None)
             continue
 
         if self._cmd_error:
@@ -66,12 +68,18 @@ class VirtualBoard(Board):
 
       except Exception as e:
         log.exception(f"error:{self._cmd}")
-        self._end_command(log, str(e))
+        self._end_command(str(e))
+
+  def _command_done(self):
+    if self._cmd == CMD.home:
+      self.position = 0
+    elif self._cmd == CMD.move:
+      self.position = self._cmd_args.get("pos", 0)
 
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
-    self._cmd = CMD_DISCONNECT
+    self._cmd = CMD.disconnect
     self._cmd_error = "Connection interrupted"
     self._cancel_cmd = True
 

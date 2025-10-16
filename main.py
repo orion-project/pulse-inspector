@@ -2,11 +2,9 @@ import sys
 import argparse
 import logging
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from consts import APP_NAME
-from main_window import MainWindow
 from utils import load_icon
 
 def main():
@@ -24,20 +22,21 @@ def main():
   app.setStyleSheet("QWidget { font-size: 15px }")
   app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
-  board = None
   try:
     if args.virtual:
       from virtual_board import VirtualBoard
-      board = VirtualBoard()
+      VirtualBoard()
     else:
       from serial_board import SerialBoard
-      board = SerialBoard()
+      SerialBoard()
   except Exception as e:
     log.exception("Error board initialization")
-    QMessageBox.critical(None, APP_NAME, f"Error board initialization: {e.__class__}: {e}")
+    QMessageBox.critical(None, APP_NAME, f"Error board initialization: {e}")
     sys.exit(1)
 
-  window = MainWindow(board, dev_mode=args.dev)
+  # Import MainWindow after the board gets initialized
+  from main_window import MainWindow
+  window = MainWindow(dev_mode=args.dev)
   window.show()
   sys.exit(app.exec())
 

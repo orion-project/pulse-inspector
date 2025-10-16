@@ -29,14 +29,13 @@ Returns:
 Go to an absolute position; available only after homing.
 
 Parameters:
-- Position to go to (in µm) or none
+- Position to go to (in µm)
 
 Returns:
 - New current position, e.g. `OK 20.5`
 
 Examples:
 - `$G 10` - go to 10µm from zero
-- `$G` - only return the current position
 
 #### Jog `$J`
 
