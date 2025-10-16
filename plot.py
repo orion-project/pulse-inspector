@@ -50,7 +50,7 @@ class Plot(FigureCanvas):
 
     fit_params = self.fit_and_plot(fit_type, num_points)
     if fit_params:
-      self.show_fit_params(fit_params)
+      self.show_fit_params(fit_params, fit_type)
 
     self.axes.set_xlabel("Delay (fs)")
     self.axes.set_ylabel("Intensity (a.u.)")
@@ -111,13 +111,89 @@ class Plot(FigureCanvas):
       log.exception("fit")
       return None
 
-  def show_fit_params(self, fit_params):
-    # TODO: calculate experimental (measured) profile FWHM
-    # TODO: calculate pulse duration from autocorrelation profile
-    # TODO: output as text on the plot in left-top corner:
-    # TODO:   - Pulse duration (estimated)
-    # TODO:   - Fit profile FWHM
-    # TODO:   - Measured profile FWHM
-    # TODO:   - Profile center
-    # TODO:   - Profile amplitude
-    pass
+  def show_fit_params(self, fit_params, fit_type):
+    """
+    Display fit parameters and estimates pulse duration as text on the plot.
+    """
+    #measured_fwhm = self._calc_measured_fwhm()
+
+    # Different fit types have different relationships between width parameter and FWHM
+    if fit_type == FIT_GAUSS:
+      # FWHM = 2 * sqrt(2 * ln(2)) * sigma
+      fit_fwhm = 2.3548200450309493 * fit_params['width']
+      deconvolution_factor = 1.4142135623730951 # sqrt(2)
+    elif fit_type == FIT_LORENTZ:
+      fit_fwhm = 2.0 * fit_params['width']
+      deconvolution_factor = 1.4142135623730951 # sqrt(2)
+    elif fit_type == FIT_SECH2:
+      # FWHM = 2 * ln(1 + sqrt(2)) * width
+      fit_fwhm = 1.7627471740390859 * fit_params['width']
+      deconvolution_factor = 1.543
+    else:
+      return
+
+    pulse_duration = fit_fwhm / deconvolution_factor
+
+    text = [
+      f"Pulse duration: {pulse_duration:.2f} fs",
+      f"Fit FWHM: {fit_fwhm:.2f} fs",
+      #f"Measured FWHM: {measured_fwhm:.2f} fs" if measured_fwhm else "Measured FWHM: N/A",
+      #f"Center: {fit_params['center']:.2f} fs",
+      #f"Amplitude: {fit_params['amplitude']:.2f} a.u."
+    ]
+    self.axes.text(
+      0.02,
+      0.98,
+      '\n'.join(text),
+      transform=self.axes.transAxes,
+      verticalalignment='top',
+      horizontalalignment='left',
+      #bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+      #fontsize=9,
+      #family='monospace'
+    )
+
+  def _calc_measured_fwhm(self):
+    """
+    Returns FWHM from measured data or None if it cannot be calculated.
+    """
+    if self.y_data is None or self.x_data is None or len(self.y_data) < 3:
+      return None
+
+    try:
+      # Find the maximum value and half maximum
+      y_max = np.max(self.y_data)
+      half_max = y_max / 2.0
+
+      # Find indices where y crosses half maximum
+      # Use interpolation for better accuracy
+      above_half = self.y_data >= half_max
+
+      # Find left crossing point
+      left_idx = None
+      for i in range(len(above_half) - 1):
+        if not above_half[i] and above_half[i + 1]:
+          # Interpolate
+          left_idx = i + (half_max - self.y_data[i]) / (self.y_data[i + 1] - self.y_data[i])
+          break
+
+      # Find right crossing point
+      right_idx = None
+      for i in range(len(above_half) - 1, 0, -1):
+        if above_half[i - 1] and not above_half[i]:
+          # Interpolate
+          right_idx = i - 1 + (half_max - self.y_data[i - 1]) / (self.y_data[i] - self.y_data[i - 1])
+          break
+
+      if left_idx is not None and right_idx is not None:
+        # Calculate x positions using interpolated indices
+        x_left = self.x_data[int(left_idx)] + (left_idx - int(left_idx)) * (self.x_data[int(left_idx) + 1] - self.x_data[int(left_idx)])
+        x_right = self.x_data[int(right_idx)] + (right_idx - int(right_idx)) * (self.x_data[int(right_idx) + 1] - self.x_data[int(right_idx)])
+        fwhm = abs(x_right - x_left)
+        return fwhm
+
+      return None
+
+    except Exception as e:
+      log.exception("Failed to calculate measured FWHM")
+      return None
