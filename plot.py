@@ -114,10 +114,10 @@ class Plot(FigureCanvas):
   def show_fit_params(self, fit_params, fit_type):
     """
     Display fit parameters and estimates pulse duration as text on the plot.
+    Different fit types have different relationships between width parameter and FWHM.
     """
     #measured_fwhm = self._calc_measured_fwhm()
 
-    # Different fit types have different relationships between width parameter and FWHM
     if fit_type == FIT_GAUSS:
       # FWHM = 2 * sqrt(2 * ln(2)) * sigma
       fit_fwhm = 2.3548200450309493 * fit_params['width']

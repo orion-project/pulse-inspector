@@ -18,6 +18,7 @@ class VirtualBoard(Board):
           CMD.home: { "timeout": 2 },
           CMD.stop: { "timeout": 0.5 },
           CMD.move: { "timeout": 2 },
+          CMD.jog: { "timeout": 0.5 },
         }
       }
     )
@@ -75,6 +76,9 @@ class VirtualBoard(Board):
       self.position = 0
     elif self._cmd == CMD.move:
       self.position = self._cmd_args.get("pos", 0)
+    elif self._cmd == CMD.jog:
+      if self.position is not None:
+        self.position += self._cmd_args.get("offset", 0)
 
   def debug_simulate_disconnection(self):
     if not self.connected:

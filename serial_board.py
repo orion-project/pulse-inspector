@@ -111,11 +111,15 @@ class SerialBoard(Board):
   def _command_args(self) -> str:
     if self._cmd == CMD.move:
       return f" {self._cmd_args.get("pos", 0)}"
+    if self._cmd == CMD.jog:
+      return f" {self._cmd_args.get("offset", 0)}"
     return ""
 
   def _command_done(self, ans: str):
-    if self._cmd == CMD.home or self._cmd == CMD.move:
-      self.position = float(ans.split(" ")[-1])
+    if self._cmd == CMD.home or self._cmd == CMD.move or self._cmd == CMD.jog:
+      res = ans.split(" ")
+      if len(res) > 1:
+        self.position = float(res[-1])
 
   def debug_simulate_disconnection(self):
     if not self.connected:

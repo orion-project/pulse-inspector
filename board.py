@@ -155,6 +155,38 @@ class Board(QObject):
     self.can_move = ok
     self.can_jog = True
 
+  def _jog(self, offset: float):
+    self._lock.acquire()
+    try:
+      if not self.can_jog:
+        self.log.debug("jog:disabled")
+        return
+      self._disable_all()
+      self._next_cmd = CMD.jog
+      self._cmd_args = {"offset": offset}
+      self.can_connect = True
+      self.can_stop = True
+    finally:
+      self._lock.release()
+
+  def jog_forth(self):
+    self._jog(self.config.value("operations/jog_distance", 0.25))
+
+  def jog_forth_long(self):
+    self._jog(self.config.value("operations/jog_distance_long", 1))
+
+  def jog_back(self):
+    self._jog(-self.config.value("operations/jog_distance", 0.25))
+
+  def jog_back_long(self):
+    self._jog(-self.config.value("operations/jog_distance_long", 1))
+
+  def scan_one(self):
+    pass
+
+  def scan_inf(self):
+    pass
+
   def _end_command(self, err):
     ok = not err
     if ok:
@@ -169,7 +201,7 @@ class Board(QObject):
         self._home_done(ok)
       elif self._cmd == CMD.stop:
         self._stop_done()
-      elif self._cmd == CMD.move:
+      elif self._cmd == CMD.move or self._cmd == CMD.jog:
         self._move_done(ok)
     finally:
       self._lock.release()

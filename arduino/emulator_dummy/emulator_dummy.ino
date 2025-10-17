@@ -7,6 +7,8 @@
 #define CMD_STOP "$X"
 #define CMD_MOVE "$G"
 #define CMD_MOVE_DURATION 2000
+#define CMD_JOG "$J"
+#define CMD_JOG_DURATION 1000
 // Debug command for injecting errors into running commands
 // for testing how UI parses and displays command failures
 #define CMD_ERROR "$DE"
@@ -91,6 +93,11 @@ void loop() {
       cmdStart = millis();
       cmdDuration = CMD_MOVE_DURATION;
       cmdParam = newCmd.substring(strlen(CMD_MOVE)+1).toFloat();
+    } else if (newCmd.startsWith(CMD_JOG)) {
+      cmd = CMD_JOG;
+      cmdStart = millis();
+      cmdDuration = CMD_JOG_DURATION;
+      cmdParam = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
     } else {
       sendError(ERR_CMD_UNKNOWN);
       return;
@@ -119,11 +126,17 @@ void endCommand(bool ok) {
       showPosition();
       Serial.print(' ');
       Serial.print(position);
-      Serial.println();
+    } else if (cmd == CMD_JOG) {
+      position += cmdParam;
+      showPosition();
+      if (homed) {
+        Serial.print(' ');
+        Serial.print(position);
+      }
     }
     Serial.println();
   } else {
-    if (cmd == CMD_HOME || cmd == CMD_MOVE) {
+    if (cmd == CMD_HOME || cmd == CMD_MOVE || CMD_JOG) {
       // Error during moving, position lost
       homed = false;
       position = 0;

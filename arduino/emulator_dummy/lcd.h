@@ -5,7 +5,9 @@
 #define showHello()
 #else
 
-// On Uno R4 there is the warning "LiquidCrystal I2C claims to run on avr architecture" but it works fine
+// On Uno R4 there is the warning 
+// "LiquidCrystal I2C claims to run on avr architecture"
+// but it works fine anyway
 #include <LiquidCrystal_I2C.h>
 
 #define SCREEN_W 16
@@ -25,6 +27,7 @@ void showCommand() {
   if (cmd == CMD_NONE) showText("Ready", 1);
   else if (cmd == CMD_HOME) showText("Homing... ", 1);
   else if (cmd == CMD_MOVE) showText("Moving... ", 1);
+  else if (cmd == CMD_JOG) showText("Jogging... ", 1);
   else showText("", 1);
 }
 

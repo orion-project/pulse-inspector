@@ -35,6 +35,7 @@ class Command:
 class Config:
   _data: ConfigObj
   _file_name = None
+  _cache = {}
 
   def __init__(self, src):
     if isinstance(src, dict):
@@ -43,14 +44,19 @@ class Config:
       self._file_name = src
       self._data = ConfigObj(src)
 
-  def cmd_spec(self, name) -> Command:
+  def cmd_spec(self, name: str) -> Command:
+    if name in self._cache:
+      return self._cache[name]
     specs = self._data.get("commands")
     if not specs:
       raise KeyError(f"Command not found: {name}")
     cmd = Command(name, specs)
+    self._cache[name] = cmd
     return cmd
 
-  def value(self, path, default = None):
+  def value(self, path: str, default = None):
+    if path in self._cache:
+      return self._cache[path]
     val = self._data
     for key in path.split("/"):
       if key not in val:
@@ -58,9 +64,11 @@ class Config:
           return default
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
-    return _convert(val)
+    val = _convert(val)
+    self._cache[path] = val
+    return val
 
-  def set_value(self, path, value):
+  def set_value(self, path: str, value):
     keys = path.split("/")
     val = self._data
     for key in keys[:-1]:
@@ -68,6 +76,7 @@ class Config:
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
     val[keys[-1]] = value
+    self._cache[path] = value
 
   def save(self):
     if not self._file_name:
