@@ -20,8 +20,8 @@ class VirtualBoard(Board):
           CMD.stop: { "timeout": 0.5 },
           CMD.move: { "timeout": 2 },
           CMD.jog: { "timeout": 0.5 },
-          CMD.scan: { "timeout": 1 },
-          CMD.scans: { "timeout": 1 },
+          CMD.scan: { "timeout": 0.25 },
+          CMD.scans: { "timeout": 0.25 },
         }
       }
     )
@@ -90,8 +90,7 @@ class VirtualBoard(Board):
       self.on_data_received.emit(x, y)
       return True
     if self._cmd == CMD.scans:
-      (x, y) = make_sample_profile()
-      self.on_data_received.emit(x, y)
+      self.on_data_received.emit(*make_sample_profile())
       self._cmd_start = time.perf_counter()
       return False
     return True

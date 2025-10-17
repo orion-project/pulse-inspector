@@ -37,13 +37,14 @@ def load_json(file_name) -> dict:
       raise Exception(f"Failed to parse file {fn}: {e}")
 
 def make_sample_profile():
+  start_pos = 10
   scan_range = 20
-  profile_center = scan_range / 2.0
+  profile_center = start_pos + scan_range / 2.0
   y_max = 1000
   profile_width = scan_range / 10.0
   num_points = 201
   noise_level = 0.05
-  x = np.linspace(0, scan_range, num_points)
+  x = np.linspace(start_pos, start_pos + scan_range, num_points)
   profile = y_max * np.exp(-((profile_center-x)**2) / (2 * profile_width**2))
   noise = np.random.normal(0, y_max * noise_level, num_points)
   y = profile + noise

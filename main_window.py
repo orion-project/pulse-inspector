@@ -1,6 +1,6 @@
 import logging
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction, QDesktopServices
+from PySide6.QtGui import QAction, QActionGroup, QDesktopServices
 from PySide6.QtWidgets import (
   QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
 
@@ -12,6 +12,8 @@ from utils import load_icon, make_sample_profile
 log = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
+  action_groups = {}
+
   def __init__(self, dev_mode=False):
     super().__init__()
 
@@ -19,10 +21,10 @@ class MainWindow(QMainWindow):
 
     self.dev_mode = dev_mode
 
+    self.create_plot()
     self.create_menu_bar()
     self.create_tool_bar()
     self.create_status_bar()
-    self.create_plot()
 
     board.on_command_beg.connect(self.board_command_beg)
     board.on_command_end.connect(self.board_command_end)
@@ -41,6 +43,18 @@ class MainWindow(QMainWindow):
         a.setShortcut(kwargs["key"])
       if "icon" in kwargs:
         a.setIcon(load_icon(kwargs["icon"]))
+      if "group" in kwargs:
+        name = kwargs["group"]
+        group = self.action_groups.get(name)
+        if not group:
+          group = QActionGroup(self)
+          group.setExclusive(True)
+          self.action_groups[name] = group
+        a.setCheckable(True)
+        a.setActionGroup(group)
+      if "checked" in kwargs:
+        a.setCheckable(True)
+        a.setChecked(kwargs["checked"])
       if menu:
         menu.addAction(a)
       return a
@@ -71,6 +85,13 @@ class MainWindow(QMainWindow):
     self.act_scan.setToolTip("Single Scan")
     self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video")
     self.act_scans.setToolTip("Continuous Scanning")
+    m.addSeparator()
+    A("Show Delay", self.plot.show_as_delay, m, group="scan", checked=True)
+    A("Show Position", self.plot.show_as_pos, m, group="scan")
+    m.addSeparator()
+    A("Gaussian Fit", self.plot.fit_gauss, m, group="fit", checked=True)
+    A("Lorentzian Fit", self.plot.fit_lorentz, m, group="fit")
+    A("sech² Fit", self.plot.fit_sech2, m, group="fit")
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
@@ -129,8 +150,7 @@ class MainWindow(QMainWindow):
   def create_plot(self):
     self.plot = Plot(self)
     self.setCentralWidget(self.plot)
-    (x, y) = make_sample_profile()
-    self.plot.draw_graph(x, y)
+    self.plot.draw_graph(*make_sample_profile())
 
   def show_homepage(self):
     QDesktopServices.openUrl(APP_PAGE)
