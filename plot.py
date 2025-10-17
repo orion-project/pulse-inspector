@@ -17,40 +17,29 @@ FIT_SECH2 = "sech2"
 log = logging.getLogger(__name__)
 
 class Plot(FigureCanvas):
-  def __init__(self, parent=None, width=8, height=6, dpi=100):
-    self.fig = Figure(figsize=(width, height), dpi=dpi)
+  fit_type = FIT_GAUSS
+
+  def __init__(self, parent=None):
+    self.fig = Figure(figsize=(8, 6), dpi=100)
     self.axes = self.fig.add_subplot(111)
-    self.fig.tight_layout(pad=2.0, w_pad=1.0, h_pad=1.0)
+    self.fig.tight_layout(pad=3.0, w_pad=1.0, h_pad=1.0)
     super().__init__(self.fig)
     self.setParent(parent)
 
     # Store current data
-    self.x_data = None
-    self.y_data = None
+    self.xs = None
+    self.ys = None
 
-  def add_sample_graph(self):
-    """
-    Plot sample profile graph with noise and fit
-    """
+  def draw_graph(self, x, y):
+    self.xs = x
+    self.ys = y
+
     self.axes.clear()
+    self.axes.plot(self.xs, self.ys, 'b-', linewidth=1.5, label="Experimental", alpha=0.7)
 
-    x_min = -100
-    x_max = 100
-    y_max = 10
-    stdev = 30
-    num_points = 201
-    noise_level = 0.05
-    fit_type = FIT_GAUSS
-
-    self.x_data = np.linspace(x_min, x_max, num_points)
-    profile = y_max * np.exp(-(self.x_data**2) / (2 * stdev**2))
-    noise = np.random.normal(0, y_max * noise_level, num_points)
-    self.y_data = profile + noise
-    self.axes.plot(self.x_data, self.y_data, 'b-', linewidth=1.5, label="Experimental", alpha=0.7)
-
-    fit_params = self.fit_and_plot(fit_type, num_points)
+    fit_params = self.fit_and_plot()
     if fit_params:
-      self.show_fit_params(fit_params, fit_type)
+      self.show_fit_params(fit_params, self.fit_type)
 
     self.axes.set_xlabel("Delay (fs)")
     self.axes.set_ylabel("Intensity (a.u.)")
@@ -60,12 +49,12 @@ class Plot(FigureCanvas):
 
     self.draw()
 
-  def fit_and_plot(self, fit_type, num_points):
+  def fit_and_plot(self):
     """
     Fits experimental data with a specified fit function,
     plots the fit curve and return fit parameters.
     """
-    if self.x_data is None or self.y_data is None or len(self.x_data) < 4:
+    if self.xs is None or self.ys is None or len(self.xs) < 4:
         return None
 
     def gaussian(x, amplitude, center, width):
@@ -77,27 +66,27 @@ class Plot(FigureCanvas):
     def sech_squared(x, amplitude, center, width):
         return amplitude / np.cosh((x - center) / width)**2
 
-    if fit_type == FIT_GAUSS:
+    if self.fit_type == FIT_GAUSS:
       fit_func = gaussian
       fit_label = "Gaussian Fit"
-    elif fit_type == FIT_LORENTZ:
+    elif self.fit_type == FIT_LORENTZ:
       fit_func = lorentzian
       fit_label = "Lorentzian Fit"
-    elif fit_type == FIT_SECH2:
+    elif self.fit_type == FIT_SECH2:
       fit_func = sech_squared
       fit_label = "sech² Fit"
     else:
         return None
 
     try:
-      amplitude_guess = np.max(self.y_data)
-      center_guess = np.mean(self.x_data)
-      width_guess = (np.max(self.x_data) - np.min(self.x_data)) / 6
-      popt, pcov = curve_fit(fit_func, self.x_data, self.y_data,
+      amplitude_guess = np.max(self.ys)
+      center_guess = np.mean(self.xs)
+      width_guess = (np.max(self.xs) - np.min(self.xs)) / 6
+      popt, pcov = curve_fit(fit_func, self.xs, self.ys,
                             p0=[amplitude_guess, center_guess, width_guess],
                             maxfev=10000)
 
-      x_fit = np.linspace(self.x_data[0], self.x_data[-1], num_points)
+      x_fit = np.linspace(self.xs[0], self.xs[-1], len(self.xs))
       y_fit = fit_func(x_fit, *popt)
       self.axes.plot(x_fit, y_fit, 'r-', linewidth=2, label=fit_label)
 
@@ -157,24 +146,24 @@ class Plot(FigureCanvas):
     """
     Returns FWHM from measured data or None if it cannot be calculated.
     """
-    if self.y_data is None or self.x_data is None or len(self.y_data) < 3:
+    if self.ys is None or self.xs is None or len(self.ys) < 3:
       return None
 
     try:
       # Find the maximum value and half maximum
-      y_max = np.max(self.y_data)
+      y_max = np.max(self.ys)
       half_max = y_max / 2.0
 
       # Find indices where y crosses half maximum
       # Use interpolation for better accuracy
-      above_half = self.y_data >= half_max
+      above_half = self.ys >= half_max
 
       # Find left crossing point
       left_idx = None
       for i in range(len(above_half) - 1):
         if not above_half[i] and above_half[i + 1]:
           # Interpolate
-          left_idx = i + (half_max - self.y_data[i]) / (self.y_data[i + 1] - self.y_data[i])
+          left_idx = i + (half_max - self.ys[i]) / (self.ys[i + 1] - self.ys[i])
           break
 
       # Find right crossing point
@@ -182,13 +171,13 @@ class Plot(FigureCanvas):
       for i in range(len(above_half) - 1, 0, -1):
         if above_half[i - 1] and not above_half[i]:
           # Interpolate
-          right_idx = i - 1 + (half_max - self.y_data[i - 1]) / (self.y_data[i] - self.y_data[i - 1])
+          right_idx = i - 1 + (half_max - self.ys[i - 1]) / (self.ys[i] - self.ys[i - 1])
           break
 
       if left_idx is not None and right_idx is not None:
         # Calculate x positions using interpolated indices
-        x_left = self.x_data[int(left_idx)] + (left_idx - int(left_idx)) * (self.x_data[int(left_idx) + 1] - self.x_data[int(left_idx)])
-        x_right = self.x_data[int(right_idx)] + (right_idx - int(right_idx)) * (self.x_data[int(right_idx) + 1] - self.x_data[int(right_idx)])
+        x_left = self.xs[int(left_idx)] + (left_idx - int(left_idx)) * (self.xs[int(left_idx) + 1] - self.xs[int(left_idx)])
+        x_right = self.xs[int(right_idx)] + (right_idx - int(right_idx)) * (self.xs[int(right_idx) + 1] - self.xs[int(right_idx)])
         fwhm = abs(x_right - x_left)
         return fwhm
 

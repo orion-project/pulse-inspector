@@ -3,6 +3,7 @@ import time
 
 from board import Board
 from consts import CMD
+from utils import make_sample_profile
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class VirtualBoard(Board):
           CMD.stop: { "timeout": 0.5 },
           CMD.move: { "timeout": 2 },
           CMD.jog: { "timeout": 0.5 },
+          CMD.scan: { "timeout": 1 },
+          CMD.scans: { "timeout": 1 },
         }
       }
     )
@@ -45,8 +48,8 @@ class VirtualBoard(Board):
           else:
             elapsed = time.perf_counter() - self._cmd_start
             if elapsed >= self._cmd_timeout:
-              self._command_done()
-              self._end_command(None)
+              if self._command_done():
+                self._end_command(None)
             continue
 
         if self._cmd_error:
@@ -71,14 +74,27 @@ class VirtualBoard(Board):
         log.exception(f"error:{self._cmd}")
         self._end_command(str(e))
 
-  def _command_done(self):
+  def _command_done(self) -> bool:
     if self._cmd == CMD.home:
       self.position = 0
-    elif self._cmd == CMD.move:
+      return True
+    if self._cmd == CMD.move:
       self.position = self._cmd_args.get("pos", 0)
-    elif self._cmd == CMD.jog:
+      return True
+    if self._cmd == CMD.jog:
       if self.position is not None:
         self.position += self._cmd_args.get("offset", 0)
+      return True
+    if self._cmd == CMD.scan:
+      (x, y) = make_sample_profile()
+      self.on_data_received.emit(x, y)
+      return True
+    if self._cmd == CMD.scans:
+      (x, y) = make_sample_profile()
+      self.on_data_received.emit(x, y)
+      self._cmd_start = time.perf_counter()
+      return False
+    return True
 
   def debug_simulate_disconnection(self):
     if not self.connected:

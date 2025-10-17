@@ -11,6 +11,8 @@ class CMD(Enum):
   stop = "STOP"
   move = "MOVE"
   jog = "JOG"
+  scan = "SCAN"
+  scans = "SCANS"
   error = "ERROR"
 
 def get_cmd_run_text(cmd: CMD) -> str:
@@ -24,4 +26,6 @@ def get_cmd_run_text(cmd: CMD) -> str:
     return "Stopping..."
   if cmd == CMD.move or cmd == CMD.jog:
     return "Moving..."
+  if cmd == CMD.scan or cmd == CMD.scans:
+    return "Scanning..."
   return cmd.value.title() + "..."

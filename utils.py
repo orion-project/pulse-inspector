@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import sys
-
+import numpy as np
 from PySide6.QtGui import QIcon
 
 _APP_DIR: str = None
@@ -35,3 +35,16 @@ def load_json(file_name) -> dict:
       return json.load(f)
     except Exception as e:
       raise Exception(f"Failed to parse file {fn}: {e}")
+
+def make_sample_profile():
+  scan_range = 20
+  profile_center = scan_range / 2.0
+  y_max = 1000
+  profile_width = scan_range / 10.0
+  num_points = 201
+  noise_level = 0.05
+  x = np.linspace(0, scan_range, num_points)
+  profile = y_max * np.exp(-((profile_center-x)**2) / (2 * profile_width**2))
+  noise = np.random.normal(0, y_max * noise_level, num_points)
+  y = profile + noise
+  return (x, y)

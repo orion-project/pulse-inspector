@@ -1,13 +1,13 @@
 import logging
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QAction, QDesktopServices
-from PySide6.QtWidgets import (QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar,
-                               QToolButton, QInputDialog)
+from PySide6.QtWidgets import (
+  QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
 
 from board import board
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD, get_cmd_run_text
 from plot import Plot
-from utils import load_icon
+from utils import load_icon, make_sample_profile
 
 log = logging.getLogger(__name__)
 
@@ -19,13 +19,15 @@ class MainWindow(QMainWindow):
 
     self.dev_mode = dev_mode
 
-    board.on_command_beg.connect(self.board_command_beg)
-    board.on_command_end.connect(self.board_command_end)
-
     self.create_menu_bar()
     self.create_tool_bar()
     self.create_status_bar()
     self.create_plot()
+
+    board.on_command_beg.connect(self.board_command_beg)
+    board.on_command_end.connect(self.board_command_end)
+    board.on_data_received.connect(self.plot.draw_graph)
+    board.on_stage_moved.connect(self.show_position)
 
     self.show_board_connection()
     self.update_actions()
@@ -65,10 +67,10 @@ class MainWindow(QMainWindow):
     self.act_stop = A("Stop", board.stop, m, key="Ctrl+B", icon="stop")
 
     m = self.menuBar().addMenu("Scan")
-    self.act_scan_one = A("Single", board.scan_one, m, key="F5", icon="photo")
-    self.act_scan_one.setToolTip("Single Scan")
-    self.act_scan_inf = A("Continuous", board.scan_inf, m, key="F9", icon="video")
-    self.act_scan_inf.setToolTip("Continuous Scanning")
+    self.act_scan = A("Single", board.scan, m, key="F5", icon="photo")
+    self.act_scan.setToolTip("Single Scan")
+    self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video")
+    self.act_scans.setToolTip("Continuous Scanning")
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
@@ -101,8 +103,8 @@ class MainWindow(QMainWindow):
     tb.addAction(self.act_jog_forth)
     tb.addAction(self.act_jog_forth_long)
     tb.addSeparator()
-    tb.addAction(self.act_scan_one)
-    tb.addAction(self.act_scan_inf)
+    tb.addAction(self.act_scan)
+    tb.addAction(self.act_scans)
     tb.addSeparator()
     tb.addAction(self.act_stop)
 
@@ -127,7 +129,8 @@ class MainWindow(QMainWindow):
   def create_plot(self):
     self.plot = Plot(self)
     self.setCentralWidget(self.plot)
-    self.plot.add_sample_graph()
+    (x, y) = make_sample_profile()
+    self.plot.draw_graph(x, y)
 
   def show_homepage(self):
     QDesktopServices.openUrl(APP_PAGE)
@@ -164,6 +167,10 @@ class MainWindow(QMainWindow):
       self.act_connect.setIcon(self.connect_icon)
       self.lab_port.setText(f"{board.port()} disconnected")
 
+  def show_position(self):
+    pos = board.position
+    self.but_move.setText("N/A" if pos is None else f"{pos}" )
+
   def update_actions(self):
     self.act_connect.setEnabled(board.can_connect)
     self.act_home.setEnabled(board.can_home)
@@ -173,13 +180,13 @@ class MainWindow(QMainWindow):
     self.act_jog_forth_long.setEnabled(board.can_jog)
     self.act_jog_back.setEnabled(board.can_jog)
     self.act_jog_back_long.setEnabled(board.can_jog)
-    self.act_scan_one.setEnabled(board.can_move)
-    self.act_scan_inf.setEnabled(board.can_move)
+    self.act_scan.setEnabled(board.can_move)
+    self.act_scans.setEnabled(board.can_move)
 
     text_color = "#00547f" if board.can_move else "gray"
     self.but_move.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: {text_color};}}")
     self.but_move.setEnabled(board.can_move)
-    self.but_move.setText("N/A" if board.position is None else f"{board.position}" )
+    self.show_position()
 
   def do_move(self):
     old_pos = board.position

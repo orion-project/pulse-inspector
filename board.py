@@ -10,6 +10,8 @@ board = None
 class Board(QObject):
   on_command_beg = Signal(CMD)
   on_command_end = Signal(CMD, str)
+  on_data_received = Signal(list, list)
+  on_stage_moved = Signal()
 
   _cmd: CMD = None
   _next_cmd: CMD = None
@@ -181,11 +183,31 @@ class Board(QObject):
   def jog_back_long(self):
     self._jog(-self.config.value("operations/jog_distance_long", 1))
 
-  def scan_one(self):
-    pass
+  def scan(self):
+    self._lock.acquire()
+    try:
+      if not self.can_move:
+        self.log.debug("scan:disabled")
+        return
+      self._disable_all()
+      self._next_cmd = CMD.scan
+      self.can_connect = True
+      self.can_stop = True
+    finally:
+      self._lock.release()
 
-  def scan_inf(self):
-    pass
+  def scans(self):
+    self._lock.acquire()
+    try:
+      if not self.can_move:
+        self.log.debug("scans:disabled")
+        return
+      self._disable_all()
+      self._next_cmd = CMD.scans
+      self.can_connect = True
+      self.can_stop = True
+    finally:
+      self._lock.release()
 
   def _end_command(self, err):
     ok = not err
@@ -201,7 +223,8 @@ class Board(QObject):
         self._home_done(ok)
       elif self._cmd == CMD.stop:
         self._stop_done()
-      elif self._cmd == CMD.move or self._cmd == CMD.jog:
+      elif self._cmd == CMD.move or self._cmd == CMD.jog \
+        or self._cmd == CMD.scan or self._cmd == CMD.scans:
         self._move_done(ok)
     finally:
       self._lock.release()

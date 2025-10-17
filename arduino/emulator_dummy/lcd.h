@@ -15,34 +15,44 @@
 
 LiquidCrystal_I2C lcd(0x27, SCREEN_W, SCREEN_H);
 
-void showText(const String &str, int row) {
+void showText(const String &str, int row)
+{
   lcd.setCursor(0, row);
   lcd.print(str);
-  for (int c = str.length(); c < SCREEN_W; c++) {
+  for (int c = str.length(); c < SCREEN_W; c++)
     lcd.write(' ');
-  }
 }
 
-void showCommand() {
+void showCommand()
+{
   if (cmd == CMD_NONE) showText("Ready", 1);
   else if (cmd == CMD_HOME) showText("Homing... ", 1);
   else if (cmd == CMD_MOVE) showText("Moving... ", 1);
   else if (cmd == CMD_JOG) showText("Jogging... ", 1);
+  else if (cmd == CMD_SCAN)
+  {
+    String s = "Scan... ";
+    s += pointsSent;
+    showText(s, 1);
+  }
   else showText("", 1);
 }
 
-void showPosition() {
+void showPosition()
+{
   String msg;
-  if (!homed) {
-    msg = "Need homing";
-  } else {
+  if (homed)
+  {
     msg = "Pos: ";
     msg += position;
   }
+  else
+    msg = "Need homing";
   showText(msg, 0);
 }
 
-void showHello() {
+void showHello()
+{
   lcd.init();
   lcd.backlight();
   lcd.begin(SCREEN_W, SCREEN_H);
