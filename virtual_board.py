@@ -22,9 +22,41 @@ class VirtualBoard(Board):
           CMD.jog: { "timeout": 0.5 },
           CMD.scan: { "timeout": 0.25 },
           CMD.scans: { "timeout": 0.25 },
+        },
+        "parameters": {
+          "p1": {
+            "title": "Simple parameter with very long title " +
+              "(can hold any value, it is up to the formware how to parse it)"
+          },
+          "p2": {
+            "title": "Integer parameter",
+            "range": "10 - 100",
+            "step": 10
+          },
+          "p3": {
+            "title": "Float value",
+            "range": "0 - 10.5",
+            "precision": 4,
+            "step": 0.5,
+          },
+          "p4": {
+            "title": "Two options 0 and 1 are renderd as flag",
+            "options": "0, 1",
+          },
+          "p5": {
+            "title": "Selector",
+            "options": "8, 16, 32, 64",
+          }
         }
       }
     )
+    self.params = {
+      "p1": "Hello World",
+      "p2": "42",
+      "p3": "7",
+      "p4": "1",
+      "p5": "32"
+    }
 
   def port(self):
     return "VIRTUAL"

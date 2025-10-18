@@ -1,5 +1,8 @@
 from configobj import ConfigObj
 
+def _is_int(v: str) -> bool:
+  return v.isdigit() or (v.startswith('-') and v[1:].isdigit())
+
 def _convert(val):
   # Without config spec all values are strings by default
   # Try to convert string values to appropriate types
@@ -9,7 +12,7 @@ def _convert(val):
       return False
     if v == "true":
       return True
-    if v.isdigit() or (v.startswith('-') and v[1:].isdigit()):
+    if _is_int(v):
       return int(v)
     try:
       return float(v)
@@ -38,6 +41,59 @@ class Command:
       timeout = specs.get("timeout", 1)
     self.timeout = _convert(timeout)
 
+def _parse_range(s: str) -> list:
+  r = [r.strip() for r in s.split("-")]
+  if len(r) != 2:
+    return None
+  if _is_int(r[0]) and _is_int(r[1]):
+    min = int(r[0])
+    max = int(r[1])
+  else:
+    try:
+      min = float(r[0])
+    except ValueError:
+      print(f"Invalid range: {s}")
+      return None
+    try:
+      max = float(r[1])
+    except ValueError:
+      print(f"Invalid range: {s}")
+      return None
+  if max < min:
+    min, max = max, min
+  return (min, max)
+
+class Parameter:
+  name: str
+  title: str
+  options: list = []
+  range: tuple = None
+  precision = 2
+  step = None
+
+  def __init__(self, name, specs):
+    spec = specs.get(name)
+    if not spec:
+      raise KeyError(f"Parameter not found: {name}")
+
+    self.name = name
+
+    self.title = spec.get("title")
+    if not self.title:
+      self.title = name
+
+    opts = spec.get("options")
+    if opts:
+      self.options = [o.strip() for o in opts.split(",")]
+    self.range = _parse_range(spec.get("range", ""))
+
+    precision = spec.get("precision")
+    if precision is not None:
+      self.precision = _convert(precision)
+
+    step = spec.get("step")
+    if step:
+      self.step = _convert(step)
 
 class Config:
   _data: ConfigObj
@@ -60,6 +116,18 @@ class Config:
     cmd = Command(name, specs)
     self._cache[name] = cmd
     return cmd
+
+  def param_spec(self, code: str) -> Parameter:
+    specs = self._data.get("parameters")
+    if not specs:
+      raise KeyError(f"Parameter not found: {code}")
+    return Parameter(code, specs)
+
+  def param_codes(self):
+    specs = self._data.get("parameters")
+    if not specs:
+      raise KeyError(f"Parameters not found")
+    return [*specs]
 
   def value(self, path: str, default = None):
     if path in self._cache:

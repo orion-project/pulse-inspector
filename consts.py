@@ -13,6 +13,7 @@ class CMD(Enum):
   jog = "JOG"
   scan = "SCAN"
   scans = "SCANS"
+  param = "PARAM"
   error = "ERROR"
 
 def get_cmd_run_text(cmd: CMD) -> str:

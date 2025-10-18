@@ -22,6 +22,7 @@ class Board(QObject):
 
   connected = False
   homed = False
+  params: dict = {}
 
   can_connect = True
   can_home = False
@@ -208,6 +209,12 @@ class Board(QObject):
       self.can_stop = True
     finally:
       self._lock.release()
+
+  def query_params(self):
+    pass
+
+  def _query_params_done(self):
+    pass
 
   def _end_command(self, err):
     ok = not err

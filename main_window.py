@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
   QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
 
 from board import board
+from board_params_dialog import BoardParamsDialog
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD, get_cmd_run_text
 from plot import Plot
 from utils import load_icon, make_sample_profile, VisibilityEventFilter
@@ -65,9 +66,7 @@ class MainWindow(QMainWindow):
     m = self.menuBar().addMenu("Board")
     self.act_connect = A("Connect", board.toggle_connection, m, icon="connect")
     self.act_disconnect = A("Disconnect", board.toggle_connection, m, icon="disconnect")
-    m.addSeparator()
-    self.act_config = A("Configuration... (TBD)", board.toggle_connection, m, icon="chip")
-    self.act_config.setEnabled(False)
+    self.act_board_params = A("Firmware Parameters...", self.edit_board_params, m, icon="chip")
     m.addSeparator()
     A("Exit", self.close, m, key="Ctrl+Q")
 
@@ -124,6 +123,7 @@ class MainWindow(QMainWindow):
 
     tb.addAction(self.act_connect)
     tb.addAction(self.act_disconnect)
+    tb.addAction(self.act_board_params)
     tb.addSeparator()
     tb.addAction(self.act_home)
     tb.addAction(self.act_jog_back_long)
@@ -216,6 +216,7 @@ class MainWindow(QMainWindow):
   def update_actions(self):
     self.act_connect.setEnabled(board.can_connect and not board.connected)
     self.act_disconnect.setEnabled(board.can_connect and board.connected)
+    #self.act_board_params.setEnabled(board.can_home)
     self.act_home.setEnabled(board.can_home)
     self.act_stop.setEnabled(board.can_stop)
     self.act_move.setEnabled(board.can_move)
@@ -235,3 +236,8 @@ class MainWindow(QMainWindow):
     (new_pos, ok) = QInputDialog.getDouble(self, APP_NAME, "Target position:", value=old_pos, step=0.1)
     if ok and int(new_pos*10) != int(old_pos*10):
       board.move(new_pos)
+
+  def edit_board_params(self):
+    dlg = BoardParamsDialog(self)
+    dlg.populate()
+    dlg.exec()
