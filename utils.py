@@ -4,6 +4,7 @@ import pathlib
 import sys
 import numpy as np
 from PySide6.QtGui import QIcon
+from PySide6.QtCore import QObject, QEvent
 
 _APP_DIR: str = None
 
@@ -49,3 +50,18 @@ def make_sample_profile():
   noise = np.random.normal(0, y_max * noise_level, num_points)
   y = profile + noise
   return (x, y)
+
+class VisibilityEventFilter(QObject):
+  """
+  Event filter to track visibility of a widget and change visibility of another one
+  """
+  def __init__(self, target, parent=None):
+    super().__init__(parent)
+    self.target = target
+
+  def eventFilter(self, obj, event):
+    if event.type() == QEvent.Type.Show:
+      self.target.show()
+    elif event.type() == QEvent.Type.Hide:
+      self.target.hide()
+    return super().eventFilter(obj, event)

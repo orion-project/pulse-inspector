@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from board import board
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD, get_cmd_run_text
 from plot import Plot
-from utils import load_icon, make_sample_profile
+from utils import load_icon, make_sample_profile, VisibilityEventFilter
 
 log = logging.getLogger(__name__)
 
@@ -139,30 +139,42 @@ class MainWindow(QMainWindow):
     tb.addAction(self.act_stop)
 
   def create_status_bar(self):
-    sb = QStatusBar()
-    self.setStatusBar(sb)
-
     self.lab_connected = QLabel()
     self.lab_connected.setPixmap(load_icon("lamp_green").pixmap(16, 16))
     self.lab_connected.setContentsMargins(4, 0, 0, 0)
     self.lab_disconnected = QLabel()
     self.lab_disconnected.setPixmap(load_icon("lamp_gray").pixmap(16, 16))
     self.lab_disconnected.setContentsMargins(4, 0, 0, 0)
-    sb.addWidget(self.lab_connected)
-    sb.addWidget(self.lab_disconnected)
 
     self.lab_port = QLabel()
     self.lab_port.setContentsMargins(0, 0, 0, 2)
-    sb.addWidget(self.lab_port)
 
-    separator = QLabel("⁞")
-    separator.setStyleSheet("QLabel{color:silver;}")
-    separator.setContentsMargins(4, 0, 4, 4)
-    sb.addWidget(separator)
+    self.lab_home_warn = QLabel()
+    self.lab_home_warn.setPixmap(load_icon("home_warn").pixmap(16, 16))
+    self.lab_home_warn.setToolTip("Homing required")
 
     self.lab_run = QLabel()
     self.lab_run.setContentsMargins(0, 0, 0, 2)
+    self.lab_run.setVisible(False)
+
+    def separator(buddy = None):
+      lab = QLabel("⁞")
+      lab.setStyleSheet("QLabel{color:silver;}")
+      lab.setContentsMargins(4, 0, 4, 4)
+      if buddy:
+        buddy.installEventFilter(VisibilityEventFilter(lab, self))
+        lab.setVisible(buddy.isVisible())
+      return lab
+
+    sb = QStatusBar()
+    sb.addWidget(self.lab_connected)
+    sb.addWidget(self.lab_disconnected)
+    sb.addWidget(self.lab_port)
+    sb.addWidget(separator(self.lab_home_warn))
+    sb.addWidget(self.lab_home_warn)
+    sb.addWidget(separator(self.lab_run))
     sb.addWidget(self.lab_run)
+    self.setStatusBar(sb)
 
   def show_homepage(self):
     QDesktopServices.openUrl(APP_PAGE)
@@ -178,10 +190,11 @@ class MainWindow(QMainWindow):
     log.debug(msg)
     self.update_actions()
     self.lab_run.setText(msg)
+    self.lab_run.show()
 
   def board_command_end(self, cmd: CMD, err: str):
     self.update_actions()
-    self.lab_run.setText(None)
+    self.lab_run.hide()
     if cmd == CMD.connect or cmd == CMD.disconnect:
       self.show_connection()
     if err:
@@ -214,6 +227,7 @@ class MainWindow(QMainWindow):
     self.act_scans.setEnabled(board.can_move)
     self.act_position_on.setVisible(board.can_move)
     self.act_position_off.setVisible(not board.can_move)
+    self.lab_home_warn.setVisible(board.connected and not board.homed)
     self.show_position()
 
   def go_to_position(self):
