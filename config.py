@@ -4,10 +4,15 @@ def _convert(val):
   # Without config spec all values are strings by default
   # Try to convert string values to appropriate types
   if isinstance(val, str):
-    if val.isdigit() or (val.startswith('-') and val[1:].isdigit()):
-      return int(val)
+    v = val.lower()
+    if v == "false":
+      return False
+    if v == "true":
+      return True
+    if v.isdigit() or (v.startswith('-') and v[1:].isdigit()):
+      return int(v)
     try:
-      return float(val)
+      return float(v)
     except ValueError:
       pass
   return val
@@ -17,6 +22,7 @@ class Command:
   name: str
   serial_name: str
   timeout: float
+  log_answer: bool
 
   def __init__(self, name, specs):
     spec = specs.get(name)
@@ -25,6 +31,7 @@ class Command:
 
     self.name = name
     self.serial_name = spec.get("serial_name")
+    self.log_answer = _convert(spec.get("log_answer", True))
 
     timeout = spec.get("timeout")
     if not timeout:

@@ -86,8 +86,7 @@ class VirtualBoard(Board):
         self.position += self._cmd_args.get("offset", 0)
       return True
     if self._cmd == CMD.scan:
-      (x, y) = make_sample_profile()
-      self.on_data_received.emit(x, y)
+      self.on_data_received.emit(*make_sample_profile())
       return True
     if self._cmd == CMD.scans:
       self.on_data_received.emit(*make_sample_profile())

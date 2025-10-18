@@ -21,7 +21,9 @@ class MainWindow(QMainWindow):
 
     self.dev_mode = dev_mode
 
-    self.create_plot()
+    self.plot = Plot(self)
+    self.setCentralWidget(self.plot)
+
     self.create_menu_bar()
     self.create_tool_bar()
     self.create_status_bar()
@@ -31,8 +33,9 @@ class MainWindow(QMainWindow):
     board.on_data_received.connect(self.plot.draw_graph)
     board.on_stage_moved.connect(self.show_position)
 
-    self.show_board_connection()
+    self.show_connection()
     self.update_actions()
+    #self.plot.draw_graph(*make_sample_profile())
 
   def create_menu_bar(self):
 
@@ -60,9 +63,8 @@ class MainWindow(QMainWindow):
       return a
 
     m = self.menuBar().addMenu("Board")
-    self.act_connect = A("Connect", board.toggle_connection, m)
-    self.connect_icon = load_icon("connect")
-    self.disconnect_icon = load_icon("disconnect")
+    self.act_connect = A("Connect", board.toggle_connection, m, icon="connect")
+    self.act_disconnect = A("Disconnect", board.toggle_connection, m, icon="disconnect")
     m.addSeparator()
     self.act_config = A("Configuration... (TBD)", board.toggle_connection, m, icon="chip")
     self.act_config.setEnabled(False)
@@ -74,7 +76,7 @@ class MainWindow(QMainWindow):
     m.addSeparator()
     self.act_jog_back_long = A("Jog Backward (long)", board.jog_back_long, m, key="Ctrl+Shift+Left", icon="jog_left_2")
     self.act_jog_back = A("Jog Backward", board.jog_back, m, key="Ctrl+Left", icon="jog_left")
-    self.act_move = A("Go To Position...", self.do_move, m, key="Ctrl+G", icon="walk")
+    self.act_move = A("Go To Position...", self.go_to_position, m, key="Ctrl+G", icon="walk")
     self.act_jog_forth = A("Jog Forward", board.jog_forth, m, key="Ctrl+Right", icon="jog_right")
     self.act_jog_forth_long = A("Jog Forward (long)", board.jog_forth_long, m, key="Ctrl+Shift+Right", icon="jog_right_2")
     m.addSeparator()
@@ -105,22 +107,29 @@ class MainWindow(QMainWindow):
     A("About Qt", self.show_about_qt, m)
 
   def create_tool_bar(self):
-    tb = QToolBar("Main Toolbar")
+    tb = QToolBar()
     tb.setIconSize(QSize(40, 40))
     tb.setMovable(False)
     tb.setFloatable(False)
     self.addToolBar(Qt.TopToolBarArea, tb)
 
-    self.but_move = QToolButton()
-    self.but_move.setToolTip("Current Position")
-    self.but_move.clicked.connect(self.do_move)
+    self.but_position_on = QToolButton()
+    self.but_position_on.setToolTip("Current Position")
+    self.but_position_on.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: #00547f;}}")
+    self.but_position_on.clicked.connect(self.go_to_position)
+    self.but_position_off = QToolButton()
+    self.but_position_off.setToolTip("Current Position\n\nHoming required")
+    self.but_position_off.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: gray;}}")
+    self.but_position_off.setEnabled(False)
 
     tb.addAction(self.act_connect)
+    tb.addAction(self.act_disconnect)
     tb.addSeparator()
     tb.addAction(self.act_home)
     tb.addAction(self.act_jog_back_long)
     tb.addAction(self.act_jog_back)
-    tb.addWidget(self.but_move)
+    self.act_position_on = tb.addWidget(self.but_position_on)
+    self.act_position_off = tb.addWidget(self.but_position_off)
     tb.addAction(self.act_jog_forth)
     tb.addAction(self.act_jog_forth_long)
     tb.addSeparator()
@@ -133,24 +142,27 @@ class MainWindow(QMainWindow):
     sb = QStatusBar()
     self.setStatusBar(sb)
 
-    self.lab_connect = QLabel()
-    self.lab_connect.setContentsMargins(4, 0, 0, 0)
-    self.pxm_on = load_icon("lamp_green").pixmap(16, 16)
-    self.pxm_off = load_icon("lamp_gray").pixmap(16, 16)
-    sb.addWidget(self.lab_connect)
+    self.lab_connected = QLabel()
+    self.lab_connected.setPixmap(load_icon("lamp_green").pixmap(16, 16))
+    self.lab_connected.setContentsMargins(4, 0, 0, 0)
+    self.lab_disconnected = QLabel()
+    self.lab_disconnected.setPixmap(load_icon("lamp_gray").pixmap(16, 16))
+    self.lab_disconnected.setContentsMargins(4, 0, 0, 0)
+    sb.addWidget(self.lab_connected)
+    sb.addWidget(self.lab_disconnected)
 
     self.lab_port = QLabel()
-    self.lab_port.setContentsMargins(0, 0, 12, 2)
+    self.lab_port.setContentsMargins(0, 0, 0, 2)
     sb.addWidget(self.lab_port)
 
-    self.lab_run = QLabel()
-    self.lab_run.setContentsMargins(2, 0, 12, 2)
-    sb.addWidget(self.lab_run)
+    separator = QLabel("⁞")
+    separator.setStyleSheet("QLabel{color:silver;}")
+    separator.setContentsMargins(4, 0, 4, 4)
+    sb.addWidget(separator)
 
-  def create_plot(self):
-    self.plot = Plot(self)
-    self.setCentralWidget(self.plot)
-    self.plot.draw_graph(*make_sample_profile())
+    self.lab_run = QLabel()
+    self.lab_run.setContentsMargins(0, 0, 0, 2)
+    sb.addWidget(self.lab_run)
 
   def show_homepage(self):
     QDesktopServices.openUrl(APP_PAGE)
@@ -171,28 +183,26 @@ class MainWindow(QMainWindow):
     self.update_actions()
     self.lab_run.setText(None)
     if cmd == CMD.connect or cmd == CMD.disconnect:
-      self.show_board_connection()
+      self.show_connection()
     if err:
       QMessageBox.critical(self, APP_NAME, err)
 
-  def show_board_connection(self):
-    if board.connected:
-      self.lab_connect.setPixmap(self.pxm_on)
-      self.act_connect.setText("Disconnect")
-      self.act_connect.setIcon(self.disconnect_icon)
-      self.lab_port.setText(f"{board.port()} connected")
-    else:
-      self.lab_connect.setPixmap(self.pxm_off)
-      self.act_connect.setText("Connect")
-      self.act_connect.setIcon(self.connect_icon)
-      self.lab_port.setText(f"{board.port()} disconnected")
+  def show_connection(self):
+    self.act_connect.setVisible(not board.connected)
+    self.act_disconnect.setVisible(board.connected)
+    self.lab_port.setText(f"{"Connected" if board.connected else "Disconnected"} {board.port()}")
+    self.lab_connected.setVisible(board.connected)
+    self.lab_disconnected.setVisible(not board.connected)
 
   def show_position(self):
     pos = board.position
-    self.but_move.setText("N/A" if pos is None else f"{pos}" )
+    text = "N/A" if pos is None else f"{pos}"
+    self.but_position_on.setText(text)
+    self.but_position_off.setText(text)
 
   def update_actions(self):
-    self.act_connect.setEnabled(board.can_connect)
+    self.act_connect.setEnabled(board.can_connect and not board.connected)
+    self.act_disconnect.setEnabled(board.can_connect and board.connected)
     self.act_home.setEnabled(board.can_home)
     self.act_stop.setEnabled(board.can_stop)
     self.act_move.setEnabled(board.can_move)
@@ -202,13 +212,11 @@ class MainWindow(QMainWindow):
     self.act_jog_back_long.setEnabled(board.can_jog)
     self.act_scan.setEnabled(board.can_move)
     self.act_scans.setEnabled(board.can_move)
-
-    text_color = "#00547f" if board.can_move else "gray"
-    self.but_move.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: {text_color};}}")
-    self.but_move.setEnabled(board.can_move)
+    self.act_position_on.setVisible(board.can_move)
+    self.act_position_off.setVisible(not board.can_move)
     self.show_position()
 
-  def do_move(self):
+  def go_to_position(self):
     old_pos = board.position
     (new_pos, ok) = QInputDialog.getDouble(self, APP_NAME, "Target position:", value=old_pos, step=0.1)
     if ok and int(new_pos*10) != int(old_pos*10):

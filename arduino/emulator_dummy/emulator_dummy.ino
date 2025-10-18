@@ -20,7 +20,7 @@
 #define SCAN_HALF_RANGE (SCAN_POINT_DISTANCE * SCAN_POINT_HALF_COUNT)
 #define SCAN_PROFILE_AMPLITUDE 1000
 #define SCAN_PROFILE_NOISE 0.05
-#define SCAN_PROFILE_WIDTH = (SCAN_HALF_RANGE / 5.0)
+#define SCAN_PROFILE_WIDTH (SCAN_HALF_RANGE / 5.0)
 
 #define ANS_OK "OK"
 #define ANS_ERR "ERR"
@@ -30,7 +30,8 @@
 #define ERR_CMD_RUNNIG 102 // Another command is already running
 #define ERR_CMD_FOOLISH 103 // Command is not applicable
 #define ERR_POS_LOST 104 // Position lost, homing required
-#define ERR_CMD_BAD_PARAM 105 // Invalid command parameter
+#define ERR_CMD_BAD_ARG 105 // Invalid command parameter
+#define ERR_CMD_CANCEL 106 // Command canceled
 
 #define BAUD_RATE 115200
 
@@ -44,6 +45,8 @@ float jogDistance;
 float profileCenter;
 } cmdArg;
 int pointsSent = 0;
+float scanStep = 0;
+bool scanBack = false;
 
 // Stage position
 bool homed = false;
@@ -70,7 +73,7 @@ void loop()
   {
     auto elapsed = millis() - cmdStart;
     if (elapsed >= cmdDuration)
-      endCommand();
+      endCommand(false);
   }
 
   if (Serial.available() > 0)
@@ -91,7 +94,7 @@ void loop()
       if (cmd == CMD_NONE)
         sendError(ERR_CMD_FOOLISH);
       else
-        endCommand();
+        endCommand(true);
       return;
     } 
 
@@ -123,15 +126,15 @@ void loop()
       cmdDuration = CMD_JOG_DURATION;
       cmdArg.jogDistance = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
     }
-    else if (newCmd = CMD_SCAN)
+    else if (newCmd == CMD_SCAN)
     {
       if (!checkHome()) return;
-      cmd = CMD_SCAN;
-      cmdStart = millis();
-      cmdDuration = SCAN_POINT_DURATION;
-      // The middle of the profile
-      cmdArg.profileCenter = position + SCAN_HALF_RANGE;
-      pointsSent = 0;
+      startScan(false);
+    }
+    else if (newCmd == CMD_SCANS)
+    {
+      if (!checkHome()) return;
+      startScan(true);
     }
     else
     {
@@ -139,6 +142,7 @@ void loop()
       return;
     }
     showCommand();
+    showPosition();
   }
 }
 
@@ -158,65 +162,106 @@ bool checkHome()
   return false;
 }
 
-void endCommand()
+void endCommand(bool stopped)
 {
-  Serial.print(ANS_OK);
   if (cmd == CMD_HOME)
   {
     homed = true;
     position = 0;
-    showPosition();
+    Serial.print(ANS_OK);
     Serial.print(' ');
     Serial.println(position);
   }
   else if (cmd == CMD_MOVE)
   {
     position = cmdArg.targetPosition;
-    showPosition();
+    Serial.print(ANS_OK);
     Serial.print(' ');
     Serial.println(position);
   }
   else if (cmd == CMD_JOG)
   {
     position += cmdArg.jogDistance;
-    showPosition();
     if (homed)
     {
+      Serial.print(ANS_OK);
       Serial.print(' ');
       Serial.println(position);
     }
+    else
+      Serial.println(ANS_OK);
   }
-  else if (cmd == CMD_SCAN)
+  else if (cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
-    float x = cmdArg.profileCenter - position;
-    float level = SCAN_PROFILE_AMPLITUDE * exp(-sq(x) / (2.0 * sq(SCAN_PROFILE_WIDTH)));
-    float noise = random(-1000, 1000) / 1000.0 * SCAN_PROFILE_AMPLITUDE * SCAN_PROFILE_NOISE;
-    Serial.print(' ');
-    Serial.print(position);
-    Serial.print(' ');
-    Serial.println(max(0, level + noise));
-    pointsSent++;
-    if (pointsSent == SCAN_POINT_COUNT)
+    if (stopped)
     {
-      // Send addition OK to show the scan is finished
       Serial.println(ANS_OK);
     }
     else
     {
-      position += SCAN_POINT_DISTANCE;
-      cmdStart = millis();    
-      if (pointsSent % 10 == 0)
-      {
-        showCommand();
-        showPosition();
-      }
-      return;
+      position += scanStep;
+      if (sendScanPoint())
+        return;
     }
   }
   cmd = CMD_NONE;
   cmdStart = 0;
   cmdDuration = 0;
   showCommand();
+  showPosition();
+}
+
+void startScan(bool inf)
+{
+  cmd = inf ? CMD_SCANS : CMD_SCAN;
+  cmdDuration = SCAN_POINT_DURATION;
+  cmdArg.profileCenter = position + SCAN_HALF_RANGE;
+  pointsSent = 0;
+  scanStep = SCAN_POINT_DISTANCE;
+  scanBack = false;
+  // Start scanning from the current position
+  sendScanPoint();
+}
+
+bool sendScanPoint()
+{
+  float x = cmdArg.profileCenter - position;
+  float level = SCAN_PROFILE_AMPLITUDE * exp(-sq(x) / (2.0 * sq(SCAN_PROFILE_WIDTH)));
+  float noise = random(-1000, 1000) / 1000.0 * SCAN_PROFILE_AMPLITUDE * SCAN_PROFILE_NOISE;
+  Serial.print(ANS_OK);
+  Serial.print(' ');
+  Serial.print(position);
+  Serial.print(' ');
+  Serial.println(max(0, level + noise));
+  pointsSent++;
+  if (scanStep == 0)
+    scanStep = scanBack ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
+  if (pointsSent == SCAN_POINT_COUNT)
+  {
+    // Send addition OK to show the scan is finished
+    Serial.println(ANS_OK);
+    if (cmd == CMD_SCAN)
+    {
+      // Finish the command
+      return false;
+    }
+    else
+    {
+      pointsSent = 0;
+      scanBack = !scanBack;
+      // When reversing the scan direction,
+      // the next point should be measured at the same position
+      // in order to have the same point number for both directions
+      scanStep = 0;
+    }
+  }
+  if (SCAN_POINT_DURATION >= 250 || pointsSent % 10 == 0)
+  {
+    showCommand();
+    showPosition();
+  }
+  cmdStart = millis();    
+  return true;
 }
 
 void simulateError()

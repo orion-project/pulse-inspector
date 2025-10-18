@@ -29,7 +29,7 @@ void showCommand()
   else if (cmd == CMD_HOME) showText("Homing... ", 1);
   else if (cmd == CMD_MOVE) showText("Moving... ", 1);
   else if (cmd == CMD_JOG) showText("Jogging... ", 1);
-  else if (cmd == CMD_SCAN)
+  else if (cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
     String s = "Scan... ";
     s += pointsSent;

@@ -12,7 +12,7 @@ class SerialBoard(Board):
   _uart: serial.Serial = None
   _profile_x = []
   _profile_y = []
-  _log_serial_answer = True
+  _cmd_log_answer = True
 
   def __init__(self):
     super().__init__(log, "board_config.ini")
@@ -43,6 +43,7 @@ class SerialBoard(Board):
         if self._cmd_start > 0:
           # There are some commands that can cancel
           # other commands without finishing them
+          # They will be finished when we receive OK after the STOP command
           if cancel:
             log.info(f"cancel:{self._cmd}")
           else:
@@ -52,7 +53,7 @@ class SerialBoard(Board):
             ans = self._uart.readline().decode('utf-8').strip()
             if ans:
               if ans.startswith(answer_ok):
-                if self._log_serial_answer:
+                if self._cmd_log_answer:
                   log.debug(f"receive:{ans}")
                 if self._command_done(ans):
                   self._end_command(None)
@@ -68,7 +69,6 @@ class SerialBoard(Board):
           self._lock.release()
 
           self._cmd = next_cmd
-          self._log_serial_answer = True
           log.info(f"begin:{self._cmd}")
           if self._cmd == CMD.connect:
             self.on_command_beg.emit(self._cmd)
@@ -85,8 +85,9 @@ class SerialBoard(Board):
             self.on_command_beg.emit(self._cmd)
             self._cmd_start = time.perf_counter()
             self._cmd_timeout = cmd.timeout
+            self._cmd_log_answer = cmd.log_answer
             cmd_args = self._prepare_command()
-            serial_cmd = cmd.serial_name + cmd_args
+            serial_cmd = f"{cmd.serial_name} {cmd_args}".strip()
             log.debug(f"send:{serial_cmd}")
             self._uart.write(serial_cmd.encode())
             self._uart.flush()
@@ -115,13 +116,13 @@ class SerialBoard(Board):
     self._uart = None
     log.info(f"Disconnected {self.port()}")
 
-  def _prepare_command(self) -> str:
+  def _prepare_command(self):
+    # Do some stuff before command start and return command arguments
     if self._cmd == CMD.move:
-      return f" {self._cmd_args.get("pos", 0)}"
+      return self._cmd_args.get("pos", 0)
     if self._cmd == CMD.jog:
-      return f" {self._cmd_args.get("offset", 0)}"
-    if self._cmd == CMD.scan:
-      self._log_serial_answer = False
+      return self._cmd_args.get("offset", 0)
+    if self._cmd == CMD.scan or self._cmd == CMD.scans:
       self._profile_x = []
       self._profile_y = []
     return ""
@@ -134,18 +135,21 @@ class SerialBoard(Board):
       if len(res) == 2: # e.g. `OK 0.5`
         self.position = float(res[-1])
       return True
-    if self._cmd == CMD.scan:
+    if self._cmd == CMD.scan or self._cmd == CMD.scans:
       res = ans.split(" ")
       if len(res) == 1:
         self.on_data_received.emit(self._profile_x, self._profile_y)
-        return True
+        self._profile_x = []
+        self._profile_y = []
+        # Finish only if the single scan, continue otherwise
+        return self._cmd == CMD.scan
       if len(res) == 3: # e.g. `OK 0.70 911.82`
         self._cmd_start = time.perf_counter()
         self.position = float(res[-2])
         self._profile_x.append(self.position)
         self._profile_y.append(float(res[-1]))
         self.on_stage_moved.emit()
-        return False
+        return False # Continue scanning
       raise Exception("Unexpected command result")
     return True
 
