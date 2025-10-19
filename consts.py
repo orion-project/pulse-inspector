@@ -29,4 +29,6 @@ def get_cmd_run_text(cmd: CMD) -> str:
     return "Moving..."
   if cmd == CMD.scan or cmd == CMD.scans:
     return "Scanning..."
+  if cmd == CMD.param:
+    return "Reading parameters..."
   return cmd.value.title() + "..."

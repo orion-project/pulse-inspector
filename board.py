@@ -11,6 +11,7 @@ class Board(QObject):
   on_command_beg = Signal(CMD)
   on_command_end = Signal(CMD, str)
   on_data_received = Signal(list, list)
+  on_params_received = Signal()
   on_stage_moved = Signal()
 
   _cmd: CMD = None
@@ -211,10 +212,24 @@ class Board(QObject):
       self._lock.release()
 
   def query_params(self):
-    pass
+    self._lock.acquire()
+    try:
+      if not self.can_home:
+        self.log.debug("param:disabled")
+        return
+      self._disable_all()
+      self._next_cmd = CMD.param
+      self.can_connect = True
+      self.can_stop = True
+    finally:
+      self._lock.release()
 
   def _query_params_done(self):
-    pass
+    self._disable_all()
+    self.can_connect = True
+    self.can_home = True
+    self.can_move = self.homed
+    self.can_jog = True
 
   def _end_command(self, err):
     ok = not err
@@ -233,6 +248,8 @@ class Board(QObject):
       elif self._cmd == CMD.move or self._cmd == CMD.jog \
         or self._cmd == CMD.scan or self._cmd == CMD.scans:
         self._move_done(ok)
+      elif self._cmd == CMD.param:
+        self._query_params_done()
     finally:
       self._lock.release()
     self.on_command_end.emit(self._cmd, err)

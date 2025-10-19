@@ -83,8 +83,9 @@ class Parameter:
       self.title = name
 
     opts = spec.get("options")
-    if opts:
-      self.options = [o.strip() for o in opts.split(",")]
+    if opts and isinstance(opts, list):
+      self.options = opts
+
     self.range = _parse_range(spec.get("range", ""))
 
     precision = spec.get("precision")

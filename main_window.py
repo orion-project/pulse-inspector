@@ -32,6 +32,7 @@ class MainWindow(QMainWindow):
     board.on_command_beg.connect(self.board_command_beg)
     board.on_command_end.connect(self.board_command_end)
     board.on_data_received.connect(self.plot.draw_graph)
+    board.on_params_received.connect(self.edit_board_params)
     board.on_stage_moved.connect(self.show_position)
 
     self.show_connection()
@@ -66,7 +67,7 @@ class MainWindow(QMainWindow):
     m = self.menuBar().addMenu("Board")
     self.act_connect = A("Connect", board.toggle_connection, m, icon="connect")
     self.act_disconnect = A("Disconnect", board.toggle_connection, m, icon="disconnect")
-    self.act_board_params = A("Firmware Parameters...", self.edit_board_params, m, icon="chip")
+    self.act_board_params = A("Firmware Parameters...", board.query_params, m, icon="chip")
     m.addSeparator()
     A("Exit", self.close, m, key="Ctrl+Q")
 
@@ -216,7 +217,7 @@ class MainWindow(QMainWindow):
   def update_actions(self):
     self.act_connect.setEnabled(board.can_connect and not board.connected)
     self.act_disconnect.setEnabled(board.can_connect and board.connected)
-    #self.act_board_params.setEnabled(board.can_home)
+    self.act_board_params.setEnabled(board.can_home)
     self.act_home.setEnabled(board.can_home)
     self.act_stop.setEnabled(board.can_stop)
     self.act_move.setEnabled(board.can_move)

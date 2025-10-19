@@ -28,7 +28,7 @@ class SerialBoard(Board):
 
   def loop(self):
     answer_ok = self.config.value("commands/answer_ok")
-    answer_err = self.config.value("commands/answer_err")
+    answer_error = self.config.value("commands/answer_error")
 
     while True:
       time.sleep(0.001)
@@ -57,9 +57,12 @@ class SerialBoard(Board):
                   log.debug(f"receive:{ans}")
                 if self._command_done(ans):
                   self._end_command(None)
-              elif ans.startswith(answer_err):
+              elif ans.startswith(answer_error):
                 log.debug(f"receive:{ans}")
                 self._end_command(self.config.error_text(ans))
+              else: # Some debug output from the board
+                if self._cmd_log_answer:
+                  log.debug(f"receive:{ans}")
             continue
 
         if next_cmd:
@@ -82,12 +85,12 @@ class SerialBoard(Board):
             cmd = self.config.cmd_spec(self._cmd.value)
             if not cmd.serial_name:
               raise Exception(f"Command serial name is empty")
+            cmd_args = self._prepare_command()
+            serial_cmd = f"{cmd.serial_name} {cmd_args}".strip()
             self.on_command_beg.emit(self._cmd)
             self._cmd_start = time.perf_counter()
             self._cmd_timeout = cmd.timeout
             self._cmd_log_answer = cmd.log_answer
-            cmd_args = self._prepare_command()
-            serial_cmd = f"{cmd.serial_name} {cmd_args}".strip()
             log.debug(f"send:{serial_cmd}")
             self._uart.write(serial_cmd.encode())
             self._uart.flush()
@@ -144,12 +147,21 @@ class SerialBoard(Board):
         # Finish only if the single scan, continue otherwise
         return self._cmd == CMD.scan
       if len(res) == 3: # e.g. `OK 0.70 911.82`
-        self._cmd_start = time.perf_counter()
         self.position = float(res[-2])
         self._profile_x.append(self.position)
         self._profile_y.append(float(res[-1]))
         self.on_stage_moved.emit()
+        self._cmd_start = time.perf_counter()
         return False # Continue scanning
+      raise Exception("Unexpected command result")
+    if self._cmd == CMD.param:
+      res = ans.split(" ")
+      if len(res) == 1:
+        self.on_params_received.emit()
+        return True
+      if len(res) == 3:
+        self.params[res[1]] = res[2]
+        return False
       raise Exception("Unexpected command result")
     return True
 

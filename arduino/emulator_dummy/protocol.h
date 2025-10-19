@@ -1,3 +1,5 @@
+#define BAUD_RATE 115200
+
 #define CMD_NONE nullptr
 #define CMD_HOME "$H"
 #define CMD_HOME_DURATION 2000
@@ -29,7 +31,7 @@
 #define ERR_CMD_RUNNIG 102 // Another command is already running
 #define ERR_CMD_FOOLISH 103 // Command is not applicable
 #define ERR_POS_LOST 104 // Position lost, homing required
-#define ERR_CMD_BAD_ARG 105 // Invalid command parameter
-#define ERR_CMD_CANCEL 106 // Command canceled
+#define ERR_CMD_BAD_ARG 105 // Invalid command argument
+#define ERR_PARAM_UNKNOWN 106 // Unknown firmware parameter
 
-#define BAUD_RATE 115200
+#define PARAM_COUNT 3

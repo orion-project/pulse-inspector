@@ -9,6 +9,14 @@ log = logging.getLogger(__name__)
 
 class VirtualBoard(Board):
   _cmd_error = None
+  _params_received = 0
+  _stored_params = {
+    "p1": "Hello World",
+    "p2": "42",
+    "p3": "7",
+    "p4": "1",
+    "p5": "32"
+  }
 
   def __init__(self):
     super().__init__(log, \
@@ -22,6 +30,7 @@ class VirtualBoard(Board):
           CMD.jog: { "timeout": 0.5 },
           CMD.scan: { "timeout": 0.25 },
           CMD.scans: { "timeout": 0.25 },
+          CMD.param: { "timeout": 0.10 },
         },
         "parameters": {
           "p1": {
@@ -41,22 +50,15 @@ class VirtualBoard(Board):
           },
           "p4": {
             "title": "Two options 0 and 1 are renderd as flag",
-            "options": "0, 1",
+            "options": ["0", "1"],
           },
           "p5": {
             "title": "Selector",
-            "options": "8, 16, 32, 64",
+            "options": ["8", "16", "32", "64"],
           }
         }
       }
     )
-    self.params = {
-      "p1": "Hello World",
-      "p2": "42",
-      "p3": "7",
-      "p4": "1",
-      "p5": "32"
-    }
 
   def port(self):
     return "VIRTUAL"
@@ -98,6 +100,7 @@ class VirtualBoard(Board):
           self._cmd = next_cmd
           log.info(f"begin:{self._cmd}")
           cmd = self.config.cmd_spec(self._cmd)
+          self._prepare_command()
           self.on_command_beg.emit(self._cmd)
           self._cmd_start = time.perf_counter()
           self._cmd_timeout = cmd.timeout
@@ -105,6 +108,11 @@ class VirtualBoard(Board):
       except Exception as e:
         log.exception(f"error:{self._cmd}")
         self._end_command(str(e))
+
+  def _prepare_command(self):
+    # Do some stuff before command start
+    if self._cmd == CMD.param:
+      self._params_received = 0
 
   def _command_done(self) -> bool:
     if self._cmd == CMD.home:
@@ -122,6 +130,17 @@ class VirtualBoard(Board):
       return True
     if self._cmd == CMD.scans:
       self.on_data_received.emit(*make_sample_profile())
+      self._cmd_start = time.perf_counter()
+      return False
+    if self._cmd == CMD.param:
+      names = [*self._stored_params]
+      name = names[self._params_received]
+      self.params[name] = self._stored_params[name]
+      self._params_received += 1
+      log.debug(f"param_received:{self._params_received}/{len(names)}:{name}={self.params[name]}")
+      if self._params_received == len(names):
+        self.on_params_received.emit()
+        return True
       self._cmd_start = time.perf_counter()
       return False
     return True

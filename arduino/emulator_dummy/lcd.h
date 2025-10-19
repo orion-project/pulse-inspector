@@ -25,17 +25,25 @@ void showText(const String &str, int row)
 
 void showCommand()
 {
-  if (cmd == CMD_NONE) showText("Ready", 1);
-  else if (cmd == CMD_HOME) showText("Homing... ", 1);
-  else if (cmd == CMD_MOVE) showText("Moving... ", 1);
-  else if (cmd == CMD_JOG) showText("Jogging... ", 1);
+  #define _(s) showText(s, 1)
+  if (cmd == CMD_NONE) _("Ready");
+  else if (cmd == CMD_HOME) _("Home... ");
+  else if (cmd == CMD_MOVE) _("Move... ");
+  else if (cmd == CMD_JOG) _("Jog... ");
   else if (cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
     String s = "Scan... ";
-    s += pointsSent;
-    showText(s, 1);
+    s += points.sent;
+    _(s);
   }
-  else showText("", 1);
+  else if (cmd == CMD_PARAM)
+  {
+    if (cmdParamArgs.sent >= 0)
+        _("Send params...");
+    else _("Write param...");
+  }
+  else _("");
+  #undef _
 }
 
 void showPosition()
