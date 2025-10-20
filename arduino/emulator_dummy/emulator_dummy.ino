@@ -10,13 +10,13 @@ unsigned long cmdDuration = 0;
 union {
   float targetPosition = 0;
   float jogDistance;
-  float profileCenter;
 } cmdArg;
-union {
+struct {
+  float center = 0;
+  float step = 0;
+  bool back = false;
   int sent = 0;
-} points;
-float scanStep = 0;
-bool scanBack = false;
+} cmdScanArgs;
 struct {
   int sent = -1;
   int index = -1;
@@ -227,7 +227,7 @@ void endCommand(bool stopped)
     }
     else
     {
-      position += scanStep;
+      position += cmdScanArgs.step;
       if (sendScanPoint())
         return;
     }
@@ -271,17 +271,17 @@ void startScan(bool inf)
 {
   cmd = inf ? CMD_SCANS : CMD_SCAN;
   cmdDuration = SCAN_POINT_DURATION;
-  cmdArg.profileCenter = position + SCAN_HALF_RANGE;
-  points.sent = 0;
-  scanStep = SCAN_POINT_DISTANCE;
-  scanBack = false;
+  cmdScanArgs.center = position + SCAN_HALF_RANGE;
+  cmdScanArgs.sent = 0;
+  cmdScanArgs.step = SCAN_POINT_DISTANCE;
+  cmdScanArgs.back = false;
   // Start scanning from the current position
   sendScanPoint();
 }
 
 bool sendScanPoint()
 {
-  float x = cmdArg.profileCenter - position;
+  float x = cmdScanArgs.center - position;
   float level = SCAN_PROFILE_AMPLITUDE * exp(-sq(x) / (2.0 * sq(SCAN_PROFILE_WIDTH)));
   float noise = random(-1000, 1000) / 1000.0 * SCAN_PROFILE_AMPLITUDE * SCAN_PROFILE_NOISE;
   Serial.print(ANS_OK);
@@ -289,10 +289,10 @@ bool sendScanPoint()
   Serial.print(position);
   Serial.print(' ');
   Serial.println(max(0, level + noise));
-  points.sent++;
-  if (scanStep == 0)
-    scanStep = scanBack ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
-  if (points.sent == SCAN_POINT_COUNT)
+  cmdScanArgs.sent++;
+  if (cmdScanArgs.step == 0)
+    cmdScanArgs.step = cmdScanArgs.back ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
+  if (cmdScanArgs.sent == SCAN_POINT_COUNT)
   {
     // Send addition OK to show the scan is finished
     Serial.println(ANS_OK);
@@ -303,15 +303,15 @@ bool sendScanPoint()
     }
     else
     {
-      points.sent = 0;
-      scanBack = !scanBack;
+      cmdScanArgs.sent = 0;
+      cmdScanArgs.back = !cmdScanArgs.back;
       // When reversing the scan direction,
       // the next point should be measured at the same position
       // in order to have the same point number for both directions
-      scanStep = 0;
+      cmdScanArgs.step = 0;
     }
   }
-  if (SCAN_POINT_DURATION >= 250 || points.sent % 10 == 0)
+  if (SCAN_POINT_DURATION >= 250 || cmdScanArgs.sent % 10 == 0)
   {
     showCommand();
     showPosition();

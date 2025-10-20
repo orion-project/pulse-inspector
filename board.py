@@ -239,7 +239,6 @@ class Board(QObject):
     self.store_next_param()
 
   def store_next_param(self):
-    print("store next param")
     self._lock.acquire()
     try:
       if not self.can_home:

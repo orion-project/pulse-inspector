@@ -33,7 +33,7 @@ void showCommand()
   else if (cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
     String s = "Scan... ";
-    s += points.sent;
+    s += cmdScanArgs.sent;
     _(s);
   }
   else if (cmd == CMD_PARAM)
