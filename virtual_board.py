@@ -13,7 +13,7 @@ class VirtualBoard(Board):
   _stored_params = {
     "p1": "Hello World",
     "p2": "42",
-    "p3": "7",
+    "p3": "7.0001",
     "p4": "1",
     "p5": "32"
   }
@@ -118,31 +118,49 @@ class VirtualBoard(Board):
     if self._cmd == CMD.home:
       self.position = 0
       return True
+
     if self._cmd == CMD.move:
       self.position = self._cmd_args.get("pos", 0)
       return True
+
     if self._cmd == CMD.jog:
       if self.position is not None:
         self.position += self._cmd_args.get("offset", 0)
       return True
+
     if self._cmd == CMD.scan:
       self.on_data_received.emit(*make_sample_profile())
       return True
+
     if self._cmd == CMD.scans:
       self.on_data_received.emit(*make_sample_profile())
       self._cmd_start = time.perf_counter()
       return False
+
     if self._cmd == CMD.param:
-      names = [*self._stored_params]
-      name = names[self._params_received]
-      self.params[name] = self._stored_params[name]
-      self._params_received += 1
-      log.debug(f"param_received:{self._params_received}/{len(names)}:{name}={self.params[name]}")
-      if self._params_received == len(names):
-        self.on_params_received.emit()
+      if self._cmd_args.get("store"):
+        # Store params
+        params = self._cmd_args["params"]
+        name = [*params][0]
+        value = params[name]
+        self._stored_params[name] = value
+        log.info(f"param_stored:{name}={value}")
+        del params[name]
+        self.on_param_stored.emit(len(params) > 0)
         return True
-      self._cmd_start = time.perf_counter()
-      return False
+      else:
+        # Receive params
+        names = [*self._stored_params]
+        name = names[self._params_received]
+        self.params[name] = self._stored_params[name]
+        self._params_received += 1
+        log.debug(f"param_received:{self._params_received}/{len(names)}:{name}={self.params[name]}")
+        if self._params_received == len(names):
+          self.on_params_received.emit()
+          return True
+        self._cmd_start = time.perf_counter()
+        return False
+
     return True
 
   def debug_simulate_disconnection(self):

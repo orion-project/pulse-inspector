@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 
 from board import board
 from board_params_dialog import BoardParamsDialog
-from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD, get_cmd_run_text
+from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD
 from plot import Plot
 from utils import load_icon, make_sample_profile, VisibilityEventFilter
 
@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
     board.on_command_end.connect(self.board_command_end)
     board.on_data_received.connect(self.plot.draw_graph)
     board.on_params_received.connect(self.edit_board_params)
+    board.on_param_stored.connect(self.board_param_stored)
     board.on_stage_moved.connect(self.show_position)
 
     self.show_connection()
@@ -187,7 +188,7 @@ class MainWindow(QMainWindow):
     QMessageBox.aboutQt(self, APP_NAME)
 
   def board_command_beg(self, cmd: CMD):
-    msg = get_cmd_run_text(cmd)
+    msg = board.get_cmd_run_text(cmd)
     log.debug(msg)
     self.update_actions()
     self.lab_run.setText(msg)
@@ -239,6 +240,11 @@ class MainWindow(QMainWindow):
       board.move(new_pos)
 
   def edit_board_params(self):
-    dlg = BoardParamsDialog(self)
-    dlg.populate()
-    dlg.exec()
+    changes = BoardParamsDialog(self).run()
+    if changes:
+      log.debug(f"changes:{changes}({len(changes)})")
+      board.store_params(changes)
+
+  def board_param_stored(self, has_more):
+    if has_more:
+      board.store_next_param()

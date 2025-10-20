@@ -12,6 +12,7 @@ class Board(QObject):
   on_command_end = Signal(CMD, str)
   on_data_received = Signal(list, list)
   on_params_received = Signal()
+  on_param_stored = Signal(bool)
   on_stage_moved = Signal()
 
   _cmd: CMD = None
@@ -19,7 +20,7 @@ class Board(QObject):
   _cancel_cmd = False
   _cmd_start = 0
   _cmd_timeout = 0
-  _cmd_args: dict = None
+  _cmd_args: dict = {}
 
   connected = False
   homed = False
@@ -59,7 +60,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_connect:
-        self.log.debug("connect:disabled")
+        self.log.warning("connect:disabled")
         return
       self._disable_all()
       if self.connected:
@@ -90,7 +91,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_home:
-        self.log.debug("home:disabled")
+        self.log.warning("home:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.home
@@ -115,7 +116,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_stop:
-        self.log.debug("stop:disabled")
+        self.log.warning("stop:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.stop
@@ -135,7 +136,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_move:
-        self.log.debug("move:disabled")
+        self.log.warning("move:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.move
@@ -163,7 +164,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_jog:
-        self.log.debug("jog:disabled")
+        self.log.warning("jog:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.jog
@@ -189,7 +190,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_move:
-        self.log.debug("scan:disabled")
+        self.log.warning("scan:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.scan
@@ -202,7 +203,7 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_move:
-        self.log.debug("scans:disabled")
+        self.log.warning("scans:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.scans
@@ -215,12 +216,13 @@ class Board(QObject):
     self._lock.acquire()
     try:
       if not self.can_home:
-        self.log.debug("param:disabled")
+        self.log.warning("read_params:disabled")
         return
       self._disable_all()
       self._next_cmd = CMD.param
       self.can_connect = True
       self.can_stop = True
+      self._cmd_args = {}
     finally:
       self._lock.release()
 
@@ -230,6 +232,25 @@ class Board(QObject):
     self.can_home = True
     self.can_move = self.homed
     self.can_jog = True
+
+  def store_params(self, params: dict):
+    self.log.info(f"changes:{params}({len(params)})")
+    self._cmd_args = {"store": True, "params": params}
+    self.store_next_param()
+
+  def store_next_param(self):
+    print("store next param")
+    self._lock.acquire()
+    try:
+      if not self.can_home:
+        self.log.warning("store_param:disabled")
+        return
+      self._disable_all()
+      self._next_cmd = CMD.param
+      self.can_connect = True
+      self.can_stop = True
+    finally:
+      self._lock.release()
 
   def _end_command(self, err):
     ok = not err
@@ -256,4 +277,27 @@ class Board(QObject):
     self._cmd = None
     self._cmd_start = 0
     self._cmd_timeout = 0
-    self._cmd_args = None
+    # Don't clear args at any command end
+    # There can be sequential commands using the same args (e.g. params storing)
+    # Args should be initialized before a command whch is going to use them
+    # Remaining commands do not care about args
+    #self._cmd_args = {}
+
+  def get_cmd_run_text(self, cmd: CMD) -> str:
+    if cmd == CMD.connect:
+      return "Connecting..."
+    if cmd == CMD.disconnect:
+      return "Disconnecting..."
+    if cmd == CMD.home:
+      return "Homing..."
+    if cmd == CMD.stop:
+      return "Stopping..."
+    if cmd == CMD.move or cmd == CMD.jog:
+      return "Moving..."
+    if cmd == CMD.scan or cmd == CMD.scans:
+      return "Scanning..."
+    if cmd == CMD.param:
+      if self._cmd_args.get("store"):
+        return "Storing parameters..."
+      return "Reading parameters..."
+    return cmd.value.title() + "..."

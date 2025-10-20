@@ -41,6 +41,8 @@ class BoardParamsDialog(QDialog):
     self.layout.addStretch()
     self.layout.addWidget(buttons)
 
+    self._populate()
+
   def _create_param_editor(self, spec: Parameter):
     make_label = True
     warn_label = QLabel()
@@ -84,7 +86,7 @@ class BoardParamsDialog(QDialog):
     self.layout.addWidget(warn_label)
     self.layout.addSpacing(10)
 
-  def populate(self):
+  def _populate(self):
     warnings = {}
     for name in self._editors:
       (kind, editor, _) = self._editors[name]
@@ -133,3 +135,30 @@ class BoardParamsDialog(QDialog):
       editor.setEnabled(False)
       warn_label.setText(warnings[name])
       warn_label.setVisible(True)
+
+  def run(self) -> dict:
+    if self.exec() != QDialog.DialogCode.Accepted:
+      return None
+    changes = {}
+    for name in self._editors:
+      (kind, editor, _) = self._editors[name]
+      if not editor.isEnabled():
+        continue
+      val = None
+      if kind == EDITOR.str:
+        val = editor.text().strip()
+      elif kind == EDITOR.int:
+        val = str(editor.value())
+      elif kind == EDITOR.float:
+        spec = board.config.param_spec(name)
+        val = f"{editor.value():.{spec.precision}f}"
+      elif kind == EDITOR.bool:
+        val = "1" if editor.isChecked() else "0"
+      elif kind == EDITOR.opts:
+        val = editor.currentText()
+      if val is None:
+        continue
+      if val == board.params[name]:
+        continue
+      changes[name] = val
+    return changes

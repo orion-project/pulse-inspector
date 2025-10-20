@@ -123,11 +123,21 @@ class SerialBoard(Board):
     # Do some stuff before command start and return command arguments
     if self._cmd == CMD.move:
       return self._cmd_args.get("pos", 0)
+
     if self._cmd == CMD.jog:
       return self._cmd_args.get("offset", 0)
+
     if self._cmd == CMD.scan or self._cmd == CMD.scans:
       self._profile_x = []
       self._profile_y = []
+
+    if self._cmd == CMD.param:
+      if self._cmd_args.get("store"):
+        params = self._cmd_args["params"]
+        name = [*params][0]
+        value = params[name]
+        return f"{name} {value}"
+
     return ""
 
   def _command_done(self, ans: str):
@@ -138,6 +148,7 @@ class SerialBoard(Board):
       if len(res) == 2: # e.g. `OK 0.5`
         self.position = float(res[-1])
       return True
+
     if self._cmd == CMD.scan or self._cmd == CMD.scans:
       res = ans.split(" ")
       if len(res) == 1:
@@ -154,15 +165,27 @@ class SerialBoard(Board):
         self._cmd_start = time.perf_counter()
         return False # Continue scanning
       raise Exception("Unexpected command result")
+
     if self._cmd == CMD.param:
-      res = ans.split(" ")
-      if len(res) == 1:
-        self.on_params_received.emit()
+      if self._cmd_args.get("store"):
+        # Store params
+        params = self._cmd_args["params"]
+        name = [*params][0]
+        value = params[name]
+        log.info(f"param_stored:{name}={value}")
+        del params[name]
+        self.on_param_stored.emit(len(params) > 0)
         return True
-      if len(res) == 3:
-        self.params[res[1]] = res[2]
-        return False
-      raise Exception("Unexpected command result")
+      else:
+        # Receive params
+        res = ans.split(" ")
+        if len(res) == 1:
+          self.on_params_received.emit()
+          return True
+        if len(res) == 3:
+          self.params[res[1]] = res[2]
+          return False
+        raise Exception("Unexpected command result")
     return True
 
   def debug_simulate_disconnection(self):

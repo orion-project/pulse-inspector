@@ -36,7 +36,7 @@ struct Param
 };
 Param params[PARAM_COUNT] = {
   { .name = "p1", .value = 16 },
-  { .name = "p2", .value = 50 },
+  { .name = "p2", .value = 50.005 },
   { .name = "p3", .value = 0.5 },
 };
 
@@ -326,10 +326,18 @@ void sendParam(int i)
   Serial.print(' ');
   Serial.print(params[i].name);
   Serial.print(' ');
-  if (i == 0) // Let's be an int param
+  if (i == 0) {
+    // This parameter is integer
     Serial.println((int)params[i].value);
-  else // remaining are floats
+  } else if (i == 1) {
+    // By default, Serial formats floats with 2 decimal digits
+    // So if we know a parameter has a higher resolution,
+    // we should configure both - the sending here 
+    // and the parameter spec in board_config.ini
+    Serial.println(params[i].value, 3);
+  } else {
     Serial.println(params[i].value);
+  }
 }
 
 void simulateError()

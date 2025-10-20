@@ -109,20 +109,26 @@ class Config:
       self._data = ConfigObj(src)
 
   def cmd_spec(self, name: str) -> Command:
+    key = f"CMD:{name}"
     if name in self._cache:
-      return self._cache[name]
+      return self._cache[key]
     specs = self._data.get("commands")
     if not specs:
       raise KeyError(f"Command not found: {name}")
     cmd = Command(name, specs)
-    self._cache[name] = cmd
+    self._cache[key] = cmd
     return cmd
 
-  def param_spec(self, code: str) -> Parameter:
+  def param_spec(self, name: str) -> Parameter:
+    key = f"PARAM:{name}"
+    if key in self._cache:
+      return self._cache[key]
     specs = self._data.get("parameters")
     if not specs:
-      raise KeyError(f"Parameter not found: {code}")
-    return Parameter(code, specs)
+      raise KeyError(f"Parameter not found: {name}")
+    param = Parameter(name, specs)
+    self._cache[key] = param
+    return param
 
   def param_codes(self):
     specs = self._data.get("parameters")

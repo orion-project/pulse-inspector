@@ -15,20 +15,3 @@ class CMD(Enum):
   scans = "SCANS"
   param = "PARAM"
   error = "ERROR"
-
-def get_cmd_run_text(cmd: CMD) -> str:
-  if cmd == CMD.connect:
-    return "Connecting..."
-  if cmd == CMD.disconnect:
-    return "Disconnecting..."
-  if cmd == CMD.home:
-    return "Homing..."
-  if cmd == CMD.stop:
-    return "Stopping..."
-  if cmd == CMD.move or cmd == CMD.jog:
-    return "Moving..."
-  if cmd == CMD.scan or cmd == CMD.scans:
-    return "Scanning..."
-  if cmd == CMD.param:
-    return "Reading parameters..."
-  return cmd.value.title() + "..."
