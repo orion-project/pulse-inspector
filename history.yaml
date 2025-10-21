@@ -1,0 +1,10 @@
+history:
+- version: 0.0.1
+  date: 2025-10-20
+  changes:
+  - text: Protocol description
+  - text: Virtual board for UI testing
+  - text: Serial board for real communications
+  - text: Arduino sketch for communication and protocol testing
+  - text: UI suports home, move, jog, scan, param commands
+  - text: Profile fitting and pulse duration estimation
