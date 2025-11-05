@@ -1,10 +1,10 @@
 // Uncomment this to allow LCD (e.g. LCD1602) for visual checking of command status
-#define USE_LCD
+//#define USE_LCD
 
 #include "protocol.h"
 
 // Currently runnng command
-char* cmd = CMD_NONE;
+const char* cmd = CMD_NONE;
 unsigned long cmdStart = 0;
 unsigned long cmdDuration = 0;
 union {
@@ -64,6 +64,7 @@ void loop()
       endCommand(false);
   }
 
+  // Start processing serial here
   if (Serial.available() > 0)
   {
     String newCmd = Serial.readString();
@@ -93,20 +94,25 @@ void loop()
       return;
     }
     
+    // process homing command
     if (newCmd == CMD_HOME)
     {
       cmd = CMD_HOME;
       cmdStart = millis();
       cmdDuration = CMD_HOME_DURATION;
     }
+
+    // process move command
     else if (newCmd.startsWith(CMD_MOVE))
     {
-      if (!checkHome()) return;
+      if (!checkHome()) return;  // if not homed, an error is sent by the checkHome function
       cmd = CMD_MOVE;
       cmdStart = millis();
       cmdDuration = CMD_MOVE_DURATION;
       cmdArg.targetPosition = newCmd.substring(strlen(CMD_MOVE)+1).toFloat();
     }
+
+    // process jog command
     else if (newCmd.startsWith(CMD_JOG))
     {
       cmd = CMD_JOG;
@@ -114,16 +120,22 @@ void loop()
       cmdDuration = CMD_JOG_DURATION;
       cmdArg.jogDistance = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
     }
+
+    // process scan command
     else if (newCmd == CMD_SCAN)
     {
       if (!checkHome()) return;
       startScan(false);
     }
+
+    // process scans command
     else if (newCmd == CMD_SCANS)
     {
       if (!checkHome()) return;
       startScan(true);
     }
+
+    // process param command without arguments
     else if (newCmd == CMD_PARAM)
     {
       cmd = CMD_PARAM;
@@ -132,6 +144,8 @@ void loop()
       cmdParamArgs.sent = 0;
       cmdParamArgs.index = -1;
     }
+
+    // process param command with additional arguments
     else if (newCmd.startsWith(CMD_PARAM))
     {
       auto split1 = newCmd.indexOf(' ');
@@ -164,13 +178,16 @@ void loop()
       cmdStart = millis();
       cmdDuration = CMD_PARAM_DURATION;
     }
+
+    // process all other inputs, i.e. unknown commands
     else
     {
       sendError(ERR_CMD_UNKNOWN);
       return;
     }
-    showCommand();
-    showPosition();
+    
+    showCommand(); // update LCD screen with command
+    showPosition(); // update LCD screen with position
   }
 }
 
@@ -190,6 +207,7 @@ bool checkHome()
   return false;
 }
 
+// processing finishing a command
 void endCommand(bool stopped)
 {
   if (cmd == CMD_HOME)

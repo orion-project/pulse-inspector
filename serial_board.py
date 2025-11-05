@@ -144,7 +144,7 @@ class SerialBoard(Board):
     if self._cmd == CMD.home or self._cmd == CMD.move or self._cmd == CMD.jog:
       res = ans.split(" ")
       if len(res) > 2:
-        raise Exception("Unexpected command result")
+        raise Exception(f"Unexpected command result: '{res}' ")
       if len(res) == 2: # e.g. `OK 0.5`
         self.position = float(res[-1])
       return True
@@ -164,7 +164,7 @@ class SerialBoard(Board):
         self.on_stage_moved.emit()
         self._cmd_start = time.perf_counter()
         return False # Continue scanning
-      raise Exception("Unexpected command result")
+      raise Exception(f"Unexpected command result: '{res}' ")
 
     if self._cmd == CMD.param:
       if self._cmd_args.get("store"):
