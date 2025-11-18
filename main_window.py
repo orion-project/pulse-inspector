@@ -8,7 +8,7 @@ from board import board
 from board_params_dialog import BoardParamsDialog
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD
 from plot import Plot
-from utils import load_icon, make_sample_profile, VisibilityEventFilter
+from utils import load_icon, app_settings, VisibilityEventFilter
 
 log = logging.getLogger(__name__)
 
@@ -37,13 +37,33 @@ class MainWindow(QMainWindow):
     board.on_param_stored.connect(self.board_param_stored)
     board.on_stage_moved.connect(self.show_position)
 
+    # Load checked options
+    s = app_settings()
+    for name in self.action_groups:
+      group = self.action_groups[name]
+      checked_id = s.value(name)
+      checked_found = False
+      for a in group.actions():
+        if a.objectName() == checked_id:
+          checked_found = True
+          a.setChecked(True)
+          a.trigger()
+          break
+      if not checked_found:
+        a = group.actions()[0]
+        a.setChecked(True)
+        a.trigger()
+
     self.show_connection()
     self.update_actions()
     #self.plot.draw_graph(*make_sample_profile())
 
   def _action_handler(self):
-    handler = self.action_handlers[self.sender()]
-    handler[0](handler[1])
+    (handler, arg) = self.action_handlers[self.sender()]
+    handler(arg)
+
+  def _action_group_triggered(self, action):
+    app_settings().setValue(self.sender().objectName(), action.objectName())
 
   def create_menu_bar(self):
 
@@ -61,14 +81,17 @@ class MainWindow(QMainWindow):
       if "hint" in kwargs:
         a.setToolTip(kwargs["hint"])
       if "group" in kwargs:
-        name = kwargs["group"]
+        [name, id] = kwargs["group"].split("|")
         group = self.action_groups.get(name)
         if not group:
           group = QActionGroup(self)
+          group.setObjectName(name)
           group.setExclusive(True)
+          group.triggered.connect(self._action_group_triggered)
           self.action_groups[name] = group
         a.setCheckable(True)
         a.setActionGroup(group)
+        a.setObjectName(id)
       if "checked" in kwargs:
         a.setCheckable(True)
         a.setChecked(kwargs["checked"])
@@ -99,19 +122,15 @@ class MainWindow(QMainWindow):
     self.act_scan = A("Single", board.scan, m, key="F5", icon="photo", hint="Single Scan")
     self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video", hint="Continuous Scanning")
     m.addSeparator()
-    scan_ranges = board.config.scan_ranges()
-    for i in range(len(scan_ranges)):
-      r = scan_ranges[i]
-      if i == 0:
-        board.set_scan_range(r.range)
-      A(r.name, board.set_scan_range, m, group="range", checked=(i==0), arg=r.range)
+    for r in board.config.scan_ranges():
+      A(r.name, board.set_scan_range, m, group=f"scan_range|{r.range}", arg=r.range)
     m.addSeparator()
-    A("Show Delay", self.plot.show_as_delay, m, group="scan", checked=True)
-    A("Show Position", self.plot.show_as_pos, m, group="scan")
+    A("Show Delay", self.plot.show_as_delay, m, group="plot_x|delay")
+    A("Show Position", self.plot.show_as_pos, m, group="plot_x|pos")
     m.addSeparator()
-    A("Gaussian Fit", self.plot.fit_gauss, m, group="fit", checked=True)
-    A("Lorentzian Fit", self.plot.fit_lorentz, m, group="fit")
-    A("sech² Fit", self.plot.fit_sech2, m, group="fit")
+    A("Gaussian Fit", self.plot.fit_gauss, m, group="fit_type|gauss")
+    A("Lorentzian Fit", self.plot.fit_lorentz, m, group="fit_type|lorentz")
+    A("sech² Fit", self.plot.fit_sech2, m, group="fit_type|sech")
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")

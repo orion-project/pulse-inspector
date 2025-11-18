@@ -5,6 +5,7 @@ history:
   - text: Add the Query Position command
   - text: Receive stage position after single scan
   - text: Pass scan range as argument of scan commands
+  - text: Store selected options: plot, fit, scan range
 
 - version: 0.0.1
   date: 2025-10-20

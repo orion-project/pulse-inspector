@@ -23,8 +23,8 @@ log = logging.getLogger(__name__)
 class Plot(FigureCanvas):
   fit_type = FIT.gauss
   show_delay = True
-  x_data = []
-  y_data = []
+  x_data = None
+  y_data = None
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -60,6 +60,9 @@ class Plot(FigureCanvas):
 
   def _replot(self):
     self.axes.clear()
+
+    if self.x_data is None:
+      return
 
     # For delay calculation we need to double the positions
     # When the stage shifts on a distance, the beam passes that distance back and forth

@@ -4,7 +4,7 @@ import pathlib
 import sys
 import numpy as np
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import QObject, QEvent
+from PySide6.QtCore import QObject, QEvent, QSettings
 
 _APP_DIR: str = None
 
@@ -63,3 +63,7 @@ class VisibilityEventFilter(QObject):
     elif event.type() == QEvent.Type.Hide:
       self.target.hide()
     return super().eventFilter(obj, event)
+
+def app_settings():
+  s = QSettings(QSettings.IniFormat, QSettings.UserScope, "orion-project.org", "pulse-inspector")
+  return s
