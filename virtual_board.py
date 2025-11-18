@@ -47,7 +47,8 @@ class VirtualBoard(Board):
         },
         "operations": {
           "jog_distance": 100,
-          "jog_distance_long": 500
+          "jog_distance_long": 500,
+          "scan_ranges": ["20 (Short)", "40 (Medium)", "100 (Long)"]
         },
         "parameters": {
           "p1": {
@@ -175,11 +176,12 @@ class VirtualBoard(Board):
       #
       # Here we don't have _position_recieved() because the software does not know
       # that firmware decides to moves the stage in order to prepare for scanninig
-      self._stage_position -= SCAN_RANGE/2
-      (x, y) = make_sample_profile(self._stage_position, SCAN_RANGE)
+      scan_range = SCAN_RANGE if self._scan_range is None else self._scan_range
+      self._stage_position -= scan_range/2
+      (x, y) = make_sample_profile(self._stage_position, scan_range)
       self._scan_profile_x = x  # precalculate profile data
       self._scan_profile_y = y  # will be used for scan steps
-      print(f"scan: {self._position_str()}, points={len(self._scan_profile_x)}")
+      print(f"scan: {self._position_str()}, points={len(self._scan_profile_x)}, range={scan_range}")
 
   def _process_command(self, elapsed: float) -> bool:
     if self._cmd == CMD.jog or self._cmd == CMD.move:

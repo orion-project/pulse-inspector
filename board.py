@@ -21,6 +21,7 @@ class Board(QObject):
   _cmd_start = 0
   _cmd_timeout = 0
   _cmd_args: dict = {}
+  _scan_range = None
 
   connected = False
   homed = False
@@ -303,3 +304,7 @@ class Board(QObject):
         return "Storing parameters..."
       return "Reading parameters..."
     return cmd.value.title() + "..."
+
+  def set_scan_range(self, range: float):
+    self._scan_range = range
+    self.log.info(f"set_scan_range:{range}")

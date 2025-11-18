@@ -1,3 +1,4 @@
+import re
 from configobj import ConfigObj
 
 def _is_int(v: str) -> bool:
@@ -96,6 +97,18 @@ class Parameter:
     if step:
       self.step = _convert(step)
 
+class ScanRange:
+  name: str
+  range: float
+
+  def __init__(self, text: str):
+    match = re.match(r'^(.+?)\s*\((.+?)\)$', text)
+    if match:
+      self.range = float(match.group(1).strip())
+      self.name = match.group(2).strip()
+    else:
+      raise ValueError(f"Invalid format for ScanRange: {text}. Expected 'value (name)'")
+
 class Config:
   _data: ConfigObj
   _file_name = None
@@ -171,3 +184,17 @@ class Config:
     if not msg:
       msg = f"error={code}"
     return msg
+
+  def scan_ranges(self) -> list[ScanRange]:
+    key = "operations/scan_ranges"
+    items = self.value(key, [])
+    if isinstance(items, str): # Single range
+      return [ScanRange(items)]
+    if isinstance(items, list): # Several ranges
+      res = []
+      for item in items:
+        if not isinstance(item, str):
+          raise TypeError(f"{key} has bad type, string or string-list expected")
+        res.append(ScanRange(item))
+      return res
+    raise TypeError(f"{key} has bad type, string or string-list expected")

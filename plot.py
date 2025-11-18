@@ -23,6 +23,8 @@ log = logging.getLogger(__name__)
 class Plot(FigureCanvas):
   fit_type = FIT.gauss
   show_delay = True
+  x_data = []
+  y_data = []
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)

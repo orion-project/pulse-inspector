@@ -138,6 +138,10 @@ class SerialBoard(Board):
         value = params[name]
         return f"{name} {value}"
 
+    if self._cmd == CMD.scan or self._cmd == CMD.scans:
+      if self._scan_range is not None:
+        return str(self._scan_range)
+
     return ""
 
   def _command_done(self, ans: str):

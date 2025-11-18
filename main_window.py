@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
   action_groups = {}
+  action_handlers = {}
 
   def __init__(self, dev_mode=False):
     super().__init__()
@@ -40,15 +41,25 @@ class MainWindow(QMainWindow):
     self.update_actions()
     #self.plot.draw_graph(*make_sample_profile())
 
+  def _action_handler(self):
+    handler = self.action_handlers[self.sender()]
+    handler[0](handler[1])
+
   def create_menu_bar(self):
 
     def A(title, handler, menu, **kwargs):
       a = QAction(title, self)
-      a.triggered.connect(handler)
+      if "arg" in kwargs:
+        self.action_handlers[a] = (handler, kwargs["arg"])
+        a.triggered.connect(self._action_handler)
+      else:
+        a.triggered.connect(handler)
       if "key" in kwargs:
         a.setShortcut(kwargs["key"])
       if "icon" in kwargs:
         a.setIcon(load_icon(kwargs["icon"]))
+      if "hint" in kwargs:
+        a.setToolTip(kwargs["hint"])
       if "group" in kwargs:
         name = kwargs["group"]
         group = self.action_groups.get(name)
@@ -85,10 +96,15 @@ class MainWindow(QMainWindow):
     self.act_stop = A("Stop", board.stop, m, key="Ctrl+B", icon="stop")
 
     m = self.menuBar().addMenu("Scan")
-    self.act_scan = A("Single", board.scan, m, key="F5", icon="photo")
-    self.act_scan.setToolTip("Single Scan")
-    self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video")
-    self.act_scans.setToolTip("Continuous Scanning")
+    self.act_scan = A("Single", board.scan, m, key="F5", icon="photo", hint="Single Scan")
+    self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video", hint="Continuous Scanning")
+    m.addSeparator()
+    scan_ranges = board.config.scan_ranges()
+    for i in range(len(scan_ranges)):
+      r = scan_ranges[i]
+      if i == 0:
+        board.set_scan_range(r.range)
+      A(r.name, board.set_scan_range, m, group="range", checked=(i==0), arg=r.range)
     m.addSeparator()
     A("Show Delay", self.plot.show_as_delay, m, group="scan", checked=True)
     A("Show Position", self.plot.show_as_pos, m, group="scan")
