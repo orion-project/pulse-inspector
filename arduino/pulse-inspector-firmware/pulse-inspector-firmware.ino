@@ -30,10 +30,12 @@ union {
   float jogDistance;
 } cmdArg;
 struct {
+  float range = 0;
   float center = 0;
   float step = 0;
   bool back = false;
   int sent = 0;
+  float pointDistance() const { return range / float(SCAN_POINT_COUNT-1); }
 } cmdScanArgs;
 struct {
   int sent = -1;
@@ -328,16 +330,18 @@ void loop()
     }
 
     // process scan command
-    else if (newCmd == CMD_SCAN)
+    else if (newCmd.startsWith(CMD_SCAN))
     {
       if (!checkHome()) return;
+      cmdScanArgs.range = newCmd.substring(strlen(CMD_SCAN)+1).toFloat();
       startScan(false);
     }
 
     // process scans command
-    else if (newCmd == CMD_SCANS)
+    else if (newCmd.startsWith(CMD_SCANS))
     {
       if (!checkHome()) return;
+      cmdScanArgs.range = newCmd.substring(strlen(CMD_SCANS)+1).toFloat();
       startScan(true);
     }
 
@@ -491,10 +495,20 @@ void startScan(bool inf)
   cmdDuration = SCAN_POINT_DURATION;
   cmdScanArgs.center = position;
   cmdScanArgs.sent = 0;
-  cmdScanArgs.step = SCAN_POINT_DISTANCE;
   cmdScanArgs.back = false;
-  // Start scanning from the current position
-  move_to_position(position - SCAN_HALF_RANGE);
+  if (cmdScanArgs.range == 0)
+    cmdScanArgs.range = SCAN_RANGE_DEFAULT;
+  cmdScanArgs.step = cmdScanArgs.pointDistance();
+
+  // Move the stage to the scan start position
+  // so the single scan loop looks like
+  //
+  // |<---- move to start ----- x
+  // |---->---- scan ---->---- scan ---->---- scan ---->----|
+  //                            x <--- restore position ----|
+  //
+  move_to_position(position - cmdScanArgs.range/2.0);
+
   sendScanPoint();
 }
 
@@ -506,7 +520,7 @@ bool sendScanPoint()
   Serial.print(ANS_OK); Serial.print(' '); Serial.print(position); Serial.print(' '); Serial.println(level);
   cmdScanArgs.sent++;
   if (cmdScanArgs.step == 0)
-    cmdScanArgs.step = cmdScanArgs.back ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
+    cmdScanArgs.step = cmdScanArgs.back ? -cmdScanArgs.pointDistance() : cmdScanArgs.pointDistance();
   if (cmdScanArgs.sent == SCAN_POINT_COUNT)
   {
     if (cmd == CMD_SCAN)
@@ -516,9 +530,7 @@ bool sendScanPoint()
 
       // Send addition OK to show the scan is finished and report the current position
       // that now is different from the last measured point position
-      Serial.print(ANS_OK);
-      Serial.print(' ');
-      Serial.println(position);
+      Serial.print(ANS_OK); Serial.print(' '); Serial.println(position);
 
       // Finish the command
       return false;
