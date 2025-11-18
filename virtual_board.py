@@ -229,13 +229,8 @@ class VirtualBoard(Board):
       self._scan_point_index += 1
       if self._scan_point_index == len(self._scan_profile_x):
         # Restore the initial position.
-        # NB: here we do not have self._position_recieved()
-        # because the SCAN command returns OK without position after measuring the last point
-        # If the firmware moves stage back to initial position after measuring the last point,
-        # the software will not know what the current position now is.
-        # It still will show the last measured position (last scan point).
-        # So we have simulate this real behaviour in the virtual camera as well.
         self._stage_position = self._scan_center
+        self._position_recieved()
         self.on_data_received.emit(self._scan_points_x, self._scan_points_y)
         print(f"scan: {self._position_str()}")
         return True

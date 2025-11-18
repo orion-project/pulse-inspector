@@ -61,7 +61,7 @@ Param params[PARAM_COUNT] = {
 };
 
 /* homing parameters */
-uint16_t homing_motor_microsteps = 0; 
+uint16_t homing_motor_microsteps = 0;
 uint16_t post_homing_steps = 350; // (small stage: 350, big stage: 2000)
 uint32_t homing_stepper_current = 300; // default: 300
 int32_t homing_velocity = 1000 / 0.715f;
@@ -110,11 +110,11 @@ void homing(){
   attachInterrupt(digitalPinToInterrupt(STALLGUARD_PIN), stalled_position, RISING);
   driver.rms_current(homing_stepper_current);
   driver.microsteps(homing_motor_microsteps);
-  
+
 
   // start moving
   driver.VACTUAL(-homing_velocity);
-  
+
   isRunning = true;
   // stop when stalled at the endstop
   while (isRunning){
@@ -137,7 +137,7 @@ void homing(){
 
   // move back to roughly the middle of the stage
   digitalWrite(DIR_PIN, LOW);
-  uint32_t idx = post_homing_steps; 
+  uint32_t idx = post_homing_steps;
   while (idx > 0){
     idx--;
     digitalWrite(STEP_PIN, HIGH);
@@ -182,7 +182,7 @@ void move_to_position(float target_position){
     digitalWrite(STEP_PIN, HIGH);
     delay(2);
     digitalWrite(STEP_PIN, LOW);
-    delay(2);    
+    delay(2);
     position = position + sign / steps_per_um;
   }
 }
@@ -215,7 +215,7 @@ void setup()
   // start serial comms
   Serial.begin(BAUD_RATE);
   Serial1.begin(115200);
-  
+
 
   // define pin modes
   pinMode(STALLGUARD_PIN, INPUT);
@@ -246,7 +246,7 @@ void setup()
 
   // enable the motor driver
   digitalWrite(ENABLE_PIN, LOW);
-  
+
   blink(3, FAST_BLINK_DELAY);
 
   randomSeed(analogRead(A0));
@@ -286,7 +286,7 @@ void loop()
       else
         endCommand(true);
       return;
-    } 
+    }
 
     // Another command is already running
     if (cmd != CMD_NONE)
@@ -294,7 +294,7 @@ void loop()
       sendError(ERR_CMD_RUNNIG);
       return;
     }
-    
+
     // process homing command
     if (newCmd == CMD_HOME)
     {
@@ -389,7 +389,7 @@ void loop()
       sendError(ERR_CMD_UNKNOWN);
       return;
     }
-    
+
     showCommand(); // update LCD screen with command
     showPosition(); // update LCD screen with position
   }
@@ -469,11 +469,11 @@ void endCommand(bool stopped)
       cmdParamArgs.sent++;
       if (cmdParamArgs.sent < PARAM_COUNT) {
         // Continue sending
-        cmdStart = millis();    
-        return; 
+        cmdStart = millis();
+        return;
       }
       // Finish sending
-      Serial.println(ANS_OK); 
+      Serial.println(ANS_OK);
     }
   }
   cmd = CMD_NONE;
@@ -507,16 +507,26 @@ bool sendScanPoint()
     cmdScanArgs.step = cmdScanArgs.back ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
   if (cmdScanArgs.sent == SCAN_POINT_COUNT)
   {
-    move_to_position(cmdScanArgs.center);
-    // Send addition OK to show the scan is finished
-    Serial.println(ANS_OK);
     if (cmd == CMD_SCAN)
     {
+      // Restore the initial position that it was before scanning
+      move_to_position(cmdScanArgs.center);
+
+      // Send addition OK to show the scan is finished and report the current position
+      // that now is different from the last measured point position
+      Serial.print(ANS_OK);
+      Serial.print(' ');
+      Serial.println(position);
+
       // Finish the command
       return false;
     }
-    else
+    else // Continuous scanning
     {
+      // Send addition OK to show the scan is finished
+      // and we switch to scan in the opposite direction
+      Serial.print(ANS_OK);
+
       cmdScanArgs.sent = 0;
       cmdScanArgs.back = !cmdScanArgs.back;
       // When reversing the scan direction,
@@ -530,7 +540,7 @@ bool sendScanPoint()
     showCommand();
     showPosition();
   }
-  cmdStart = millis();    
+  cmdStart = millis();
   return true;
 }
 
@@ -546,7 +556,7 @@ void sendParam(int i)
   } else if (i == 1) {
     // By default, Serial formats floats with 2 decimal digits
     // So if we know a parameter has a higher resolution,
-    // we should configure both - the sending here 
+    // we should configure both - the sending here
     // and the parameter spec in board_config.ini
     Serial.println(params[i].value, 3);
   } else {

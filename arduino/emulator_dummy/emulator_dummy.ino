@@ -1,5 +1,5 @@
 // Uncomment this to allow LCD (e.g. LCD1602) for visual checking of command status
-//#define USE_LCD
+#define USE_LCD
 
 #include "protocol.h"
 
@@ -85,7 +85,7 @@ void loop()
       else
         endCommand(true);
       return;
-    } 
+    }
 
     // Another command is already running
     if (cmd != CMD_NONE)
@@ -93,7 +93,7 @@ void loop()
       sendError(ERR_CMD_RUNNIG);
       return;
     }
-    
+
     // process homing command
     if (newCmd == CMD_HOME)
     {
@@ -185,7 +185,7 @@ void loop()
       sendError(ERR_CMD_UNKNOWN);
       return;
     }
-    
+
     showCommand(); // update LCD screen with command
     showPosition(); // update LCD screen with position
   }
@@ -271,11 +271,11 @@ void endCommand(bool stopped)
       cmdParamArgs.sent++;
       if (cmdParamArgs.sent < PARAM_COUNT) {
         // Continue sending
-        cmdStart = millis();    
-        return; 
+        cmdStart = millis();
+        return;
       }
       // Finish sending
-      Serial.println(ANS_OK); 
+      Serial.println(ANS_OK);
     }
   }
   cmd = CMD_NONE;
@@ -289,11 +289,20 @@ void startScan(bool inf)
 {
   cmd = inf ? CMD_SCANS : CMD_SCAN;
   cmdDuration = SCAN_POINT_DURATION;
-  cmdScanArgs.center = position + SCAN_HALF_RANGE;
+  cmdScanArgs.center = position;
   cmdScanArgs.sent = 0;
   cmdScanArgs.step = SCAN_POINT_DISTANCE;
   cmdScanArgs.back = false;
-  // Start scanning from the current position
+
+  // Move the stage to the scan start position
+  // so the single scan loop looks like
+  //
+  // |<---- move to start ----- x
+  // |---->---- scan ---->---- scan ---->---- scan ---->----|
+  //                            x <--- restore position ----|
+  //
+  position -= SCAN_HALF_RANGE;
+
   sendScanPoint();
 }
 
@@ -312,15 +321,26 @@ bool sendScanPoint()
     cmdScanArgs.step = cmdScanArgs.back ? -SCAN_POINT_DISTANCE : SCAN_POINT_DISTANCE;
   if (cmdScanArgs.sent == SCAN_POINT_COUNT)
   {
-    // Send addition OK to show the scan is finished
-    Serial.println(ANS_OK);
     if (cmd == CMD_SCAN)
     {
+      // Restore the initial position that it was before scanning
+      position -= SCAN_HALF_RANGE;
+
+      // Send addition OK to show the scan is finished and report the current position
+      // that now is different from the last measured point position
+      Serial.print(ANS_OK);
+      Serial.print(' ');
+      Serial.println(position);
+
       // Finish the command
       return false;
     }
-    else
+    else // Continuous scanning
     {
+      // Send addition OK to show the scan is finished
+      // and we switch to scan in the opposite direction
+      Serial.print(ANS_OK);
+
       cmdScanArgs.sent = 0;
       cmdScanArgs.back = !cmdScanArgs.back;
       // When reversing the scan direction,
@@ -334,7 +354,7 @@ bool sendScanPoint()
     showCommand();
     showPosition();
   }
-  cmdStart = millis();    
+  cmdStart = millis();
   return true;
 }
 
@@ -350,7 +370,7 @@ void sendParam(int i)
   } else if (i == 1) {
     // By default, Serial formats floats with 2 decimal digits
     // So if we know a parameter has a higher resolution,
-    // we should configure both - the sending here 
+    // we should configure both - the sending here
     // and the parameter spec in board_config.ini
     Serial.println(params[i].value, 3);
   } else {
@@ -360,7 +380,7 @@ void sendParam(int i)
 
 void simulateError()
 {
-  if (cmd == CMD_HOME || cmd == CMD_MOVE || CMD_JOG || CMD_SCAN || CMD_SCANS)
+  if (cmd == CMD_HOME || cmd == CMD_MOVE || cmd == CMD_JOG || cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
     // Error during moving, position lost
     homed = false;

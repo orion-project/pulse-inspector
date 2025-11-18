@@ -152,12 +152,19 @@ class SerialBoard(Board):
     if self._cmd == CMD.scan or self._cmd == CMD.scans:
       res = ans.split(" ")
       if len(res) == 1:
+        # End of continuous scan loop, `OK`
         self.on_data_received.emit(self._profile_x, self._profile_y)
         self._profile_x = []
         self._profile_y = []
-        # Finish only if the single scan, continue otherwise
-        return self._cmd == CMD.scan
-      if len(res) == 3: # e.g. `OK 0.70 911.82`
+        return False # Continue to the next loop
+      if len(res) == 2:
+        # End of single scan loop, e.g. `OK 100`
+        self.position = float(res[-1])
+        self.on_stage_moved.emit()
+        self.on_data_received.emit(self._profile_x, self._profile_y)
+        return True
+      if len(res) == 3:
+        # Next scan point received, e.g. `OK 0.70 911.82`
         self.position = float(res[-2])
         self._profile_x.append(self.position)
         self._profile_y.append(float(res[-1]))
