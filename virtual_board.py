@@ -7,7 +7,20 @@ from utils import make_sample_profile
 
 log = logging.getLogger(__name__)
 
+def ms(v): return v/1000.0
+
+MOVE_SPEED = 100 # mkm/s
+MOVE_DELTA = ms(10)
+JOG_SPEED = 100 # mkm/s
+JOG_DELTA = ms(100)
+SCAN_RANGE = 20
+POS_EPSILON = 0.1 # mkm
+
 class VirtualBoard(Board):
+  # Current position of the stage as it's known by the firmware
+  # Unlike self.position wich is what is known by the software
+  _stage_position = 0 #
+
   _cmd_error = None
   _params_received = 0
   _stored_params = {
@@ -26,11 +39,15 @@ class VirtualBoard(Board):
           CMD.disconnect: { "timeout": 0.5 },
           CMD.home: { "timeout": 2 },
           CMD.stop: { "timeout": 0.5 },
-          CMD.move: { "timeout": 2 },
-          CMD.jog: { "timeout": 0.5 },
-          CMD.scan: { "timeout": 0.25 },
+          CMD.move: { "timeout": -1 }, # use MOVE_SPEED
+          CMD.jog: { "timeout": -1 }, # use JOG_SPEED
+          CMD.scan: { "timeout": 0.1 }, # between points
           CMD.scans: { "timeout": 0.25 },
           CMD.param: { "timeout": 0.10 },
+        },
+        "operations": {
+          "jog_distance": 100,
+          "jog_distance_long": 500
         },
         "parameters": {
           "p1": {
@@ -81,9 +98,15 @@ class VirtualBoard(Board):
             log.info(f"cancel:{self._cmd}")
           else:
             elapsed = time.perf_counter() - self._cmd_start
-            if elapsed >= self._cmd_timeout:
-              if self._command_done():
-                self._end_command(None)
+            # Commands having timeout simulate their processing just by waiting for timeout
+            if self._cmd_timeout > 0:
+              if elapsed >= self._cmd_timeout:
+                if self._command_done():
+                  self._end_command(None)
+            else:
+              if self._process_command(elapsed):
+                if self._command_done():
+                  self._end_command(None)
             continue
 
         if self._cmd_error:
@@ -109,28 +132,116 @@ class VirtualBoard(Board):
         log.exception(f"error:{self._cmd}")
         self._end_command(str(e))
 
+  def _position_recieved(self):
+    # Here we simulate that a position has been read from the firmware
+    # Arduino rounds float values when sending them via Serial.print
+    # so we round here as well
+    self.position = float(int(self._stage_position*100))/100
+
+  def _position_str(self):
+    return f"pos={self.position}, stage_pos={self._stage_position:.2f}"
+
   def _prepare_command(self):
     # Do some stuff before command start
     if self._cmd == CMD.param:
       self._params_received = 0
+    elif self._cmd == CMD.move:
+      self._mov_start = self._stage_position
+      self._mov_target = self._cmd_args.get("pos", 0)
+      self._mov_prev_time = 0
+      self._mov_delta = MOVE_DELTA
+      offset = self._mov_target - self._stage_position
+      self._mov_speed = MOVE_SPEED * (1 if offset > 0 else -1)
+      print(f"mov: {self._position_str()}, target={self._mov_target}, speed={self._mov_speed}")
+    elif self._cmd == CMD.jog:
+      offset = self._cmd_args.get("offset", 0)
+      self._mov_start = self._stage_position
+      self._mov_target = self._mov_start + offset
+      self._mov_prev_time = 0
+      self._mov_delta = JOG_DELTA
+      self._mov_speed = JOG_SPEED * (1 if offset > 0 else -1)
+      print(f"mov: {self._position_str()}, target={self._mov_target}, speed={self._mov_speed}")
+    elif self._cmd == CMD.scan:
+      self._scan_points_x = []
+      self._scan_points_y = []
+      self._scan_point_index = 0
+      self._scan_center = self._stage_position
+      # move the stage to the start scan position
+      # so the single scan loop looks like
+      #
+      # |<---- move to start ----- x
+      # |---->---- scan ---->---- scan ---->---- scan ---->----|
+      #                            x <--- restore position ----|
+      #
+      # Here we don't have _position_recieved() because the software does not know
+      # that firmware decides to moves the stage in order to prepare for scanninig
+      self._stage_position -= SCAN_RANGE/2
+      (x, y) = make_sample_profile(self._stage_position, SCAN_RANGE)
+      self._scan_profile_x = x  # precalculate profile data
+      self._scan_profile_y = y  # will be used for scan steps
+      print(f"scan: {self._position_str()}, points={len(self._scan_profile_x)}")
+
+  def _process_command(self, elapsed: float) -> bool:
+    if self._cmd == CMD.jog or self._cmd == CMD.move:
+      # Skip moving if we already at target
+      if abs(self._mov_target - self._mov_start) < POS_EPSILON:
+        return True
+      # Do moving by small steps
+      delta = elapsed - self._mov_prev_time
+      if delta < self._mov_delta:
+        return False
+      step = self._mov_speed * delta
+      self._stage_position += step
+      self._mov_prev_time = elapsed
+      print(f"mov: delta={delta*1000:.2f}, step={step:.2f}, {self._position_str()}")
+      if (abs(self._mov_target - self._stage_position) < POS_EPSILON) \
+        or (self._mov_speed > 0 and self._stage_position > self._mov_target) \
+        or (self._mov_speed < 0 and self._stage_position < self._mov_target):
+          return True
+    return False
 
   def _command_done(self) -> bool:
     if self._cmd == CMD.home:
-      self.position = 0
+      self._stage_position = 0
+      self._position_recieved()
       return True
 
     if self._cmd == CMD.move:
-      self.position = self._cmd_args.get("pos", 0)
+      self._position_recieved()
+      print(f"mov: {self._position_str()}")
       return True
 
     if self._cmd == CMD.jog:
       if self.position is not None:
-        self.position += self._cmd_args.get("offset", 0)
+        self._position_recieved()
+      print(f"mov: {self._position_str()}")
       return True
 
     if self._cmd == CMD.scan:
-      self.on_data_received.emit(*make_sample_profile())
-      return True
+      x = self._scan_profile_x[self._scan_point_index]
+      y = self._scan_profile_y[self._scan_point_index]
+      self._stage_position = x
+      print(f"scan: point={self._scan_point_index}, {self._position_str()}, level={y:.2f}")
+      self._scan_points_x.append(x)
+      self._scan_points_y.append(y)
+      self._position_recieved()
+      self.on_stage_moved.emit()
+      self._scan_point_index += 1
+      if self._scan_point_index == len(self._scan_profile_x):
+        # Restore the initial position.
+        # NB: here we do not have self._position_recieved()
+        # because the SCAN command returns OK without position after measuring the last point
+        # If the firmware moves stage back to initial position after measuring the last point,
+        # the software will not know what the current position now is.
+        # It still will show the last measured position (last scan point).
+        # So we have simulate this real behaviour in the virtual camera as well.
+        self._stage_position = self._scan_center
+        self.on_data_received.emit(self._scan_points_x, self._scan_points_y)
+        print(f"scan: {self._position_str()}")
+        return True
+      # Continue to the next scan point
+      self._cmd_start = time.perf_counter()
+      return False
 
     if self._cmd == CMD.scans:
       self.on_data_received.emit(*make_sample_profile())

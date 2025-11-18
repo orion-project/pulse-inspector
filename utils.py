@@ -37,9 +37,7 @@ def load_json(file_name) -> dict:
     except Exception as e:
       raise Exception(f"Failed to parse file {fn}: {e}")
 
-def make_sample_profile():
-  start_pos = 10
-  scan_range = 20
+def make_sample_profile(start_pos = 10, scan_range = 20):
   profile_center = start_pos + scan_range / 2.0
   y_max = 1000
   profile_width = scan_range / 10.0

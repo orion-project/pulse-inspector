@@ -1,4 +1,9 @@
 history:
+- version: 0.0.2
+  date: ?
+  changes:
+  - text: Add the Query Position command
+
 - version: 0.0.1
   date: 2025-10-20
   changes:

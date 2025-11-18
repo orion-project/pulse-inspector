@@ -186,6 +186,9 @@ class Board(QObject):
   def jog_back_long(self):
     self._jog(-self.config.value("operations/jog_distance_long", 1))
 
+  def get_position(self):
+    self._jog(0)
+
   def scan(self):
     self._lock.acquire()
     try:
