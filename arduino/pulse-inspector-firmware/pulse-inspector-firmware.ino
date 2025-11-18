@@ -322,7 +322,9 @@ void loop()
       cmdStart = millis();
       cmdDuration = CMD_JOG_DURATION;
       cmdArg.jogDistance = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
-      move_to_position(position + cmdArg.jogDistance);
+      // `$J 0` is used for getting current position
+      if (cmdArg.jogDistance != 0)
+        move_to_position(position + cmdArg.jogDistance);
     }
 
     // process scan command

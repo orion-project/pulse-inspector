@@ -41,7 +41,7 @@ class VirtualBoard(Board):
           CMD.stop: { "timeout": 0.5 },
           CMD.move: { "timeout": -1 }, # use MOVE_SPEED
           CMD.jog: { "timeout": -1 }, # use JOG_SPEED
-          CMD.scan: { "timeout": 0.1 }, # between points
+          CMD.scan: { "timeout": 0.05 }, # between points
           CMD.scans: { "timeout": 0.25 },
           CMD.param: { "timeout": 0.10 },
         },
@@ -136,7 +136,7 @@ class VirtualBoard(Board):
     # Here we simulate that a position has been read from the firmware
     # Arduino rounds float values when sending them via Serial.print
     # so we round here as well
-    self.position = float(int(self._stage_position*100))/100
+    self.position = round(self._stage_position, 2)
 
   def _position_str(self):
     return f"pos={self.position}, stage_pos={self._stage_position:.2f}"
