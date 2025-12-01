@@ -21,11 +21,52 @@ def app_dir(file_name = None) -> str:
     return os.path.join(_APP_DIR, file_name)
   return _APP_DIR
 
-def load_icon(icon_file) -> QIcon:
+def load_icon_svg(icon_file) -> QIcon:
   fn = icon_file
   if not fn.endswith(".svg") and not fn.endswith(".png"):
     fn += ".svg"
-  return QIcon(os.path.join(app_dir(), 'img', fn))
+  fn = os.path.join(app_dir(), "img", fn)
+  print("Load icon", fn)
+  return QIcon(fn)
+
+def load_icon_png(icon_file) -> QIcon:
+  fn = icon_file
+  if not fn.endswith(".png"):
+    fn += ".png"
+  fn = os.path.join(app_dir(), "img", fn)
+  print("Load icon", fn)
+  return QIcon(fn)
+
+_ICONS = {}
+
+def load_icon_zip(icon_file) -> QIcon:
+  fn = icon_file
+  if fn.endswith(".png"):
+    return load_icon_png(fn)
+  if not fn.endswith(".svg"):
+    fn += ".svg"
+  if len(_ICONS) == 0:
+    from zipfile import ZipFile
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QPixmap, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    icons_zip = os.path.join(app_dir(), 'img', 'icons.zip')
+    with ZipFile(icons_zip, mode='r') as z:
+      for name in z.namelist():
+        print(f"Load icon", os.path.join(icons_zip, name))
+        svg_bytes = z.read(name)
+        renderer = QSvgRenderer(svg_bytes)
+        pixmap = QPixmap(200, 200)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        _ICONS[name] = QIcon(pixmap)
+  return _ICONS[fn] if fn in _ICONS else QIcon()
+
+#load_icon = load_icon_svg
+#load_icon = load_icon_png
+load_icon = load_icon_zip
 
 def load_json(file_name) -> dict:
   fn = app_dir(file_name)
