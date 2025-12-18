@@ -16,14 +16,14 @@ class MainWindow(QMainWindow):
   action_groups = {}
   action_handlers = {}
 
-  def __init__(self, dev_mode=False):
+  def __init__(self, dev_mode=False, autosave=False):
     super().__init__()
 
     self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
 
     self.dev_mode = dev_mode
 
-    self.plot = Plot(self)
+    self.plot = Plot(self, autosave=autosave)
     self.setCentralWidget(self.plot)
 
     self.create_menu_bar()

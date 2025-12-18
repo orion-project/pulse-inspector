@@ -2,6 +2,9 @@ from enum import Enum
 import logging
 import numpy as np
 from scipy.optimize import curve_fit
+# only required for autosaving
+from pathlib import Path
+from datetime import datetime
 
 # There are tons of debug messages about found fonts
 # that makes the global DEBUG level totally useless
@@ -26,12 +29,17 @@ class Plot(FigureCanvas):
   x_data = None
   y_data = None
 
-  def __init__(self, parent=None):
+  def __init__(self, parent=None, autosave=False):
     self.fig = Figure(figsize=(8, 6), dpi=100)
+    self.autosave = autosave
     self.axes = self.fig.add_subplot(111)
     self.fig.tight_layout(pad=4.0, w_pad=1.0, h_pad=1.0)
     super().__init__(self.fig)
     self.setParent(parent)
+
+    if self.autosave:
+      output_dir = Path.home() / "Desktop" / "autocorrelation-measurements"
+      output_dir.mkdir(parents=True, exist_ok=True)
 
   def show_as_pos(self):
     self.show_delay = False
@@ -68,6 +76,10 @@ class Plot(FigureCanvas):
     # When the stage shifts on a distance, the beam passes that distance back and forth
     self.xs = [*((self.x_data*2.0) if self.show_delay else self.x_data)]
     self.ys = self.y_data
+    if self.autosave:
+      timestamp = datetime.now().isoformat(timespec="milliseconds").replace(":", "-")
+      file_path = Path.home() / "Desktop" / "autocorrelation-measurements" / f"ac_{timestamp}.txt"
+      np.savetxt(file_path, np.array([self.xs, self.ys]).T)
 
     fit_params = self.fit_and_plot()
     if not fit_params: return

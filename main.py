@@ -14,6 +14,7 @@ def main():
   parser = argparse.ArgumentParser(description=APP_NAME)
   parser.add_argument('--dev', action='store_true', help='Enable development mode')
   parser.add_argument('--virtual', action='store_true', help='Use virtual board')
+  parser.add_argument('--autosave', action='store_true', help='Enable autosaving of measurements')
   args = parser.parse_args()
 
   app = QApplication(sys.argv)
@@ -36,7 +37,7 @@ def main():
 
   # Import MainWindow after the board gets initialized
   from main_window import MainWindow
-  window = MainWindow(dev_mode=args.dev)
+  window = MainWindow(dev_mode=args.dev, autosave=args.autosave)
   window.show()
   sys.exit(app.exec())
 
