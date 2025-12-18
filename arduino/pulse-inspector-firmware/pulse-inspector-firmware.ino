@@ -21,6 +21,30 @@
 #define R_SENSE 0.11f     // Resistors for current sensing, here 110 mΩ
 #define DRIVER_ADDRESS 0  // TMC2209 Driver address. 0 --> MS1 and MS2 tied do ground
 
+/* Define parameter numbers */
+#define PARAM_MICROSTEPS 0
+#define PARAM_POST_HOMING_STEPS 1
+
+/* ADC parameters */
+float SENSOR_SCALE;
+
+// Stage position
+bool homed = false;
+float position = 0;  // Convention: Position is given in μm!
+float steps_per_um = 0.2; // --> Pitch of lead screw / steps per full motor revolution: In this example pitch is 3.92 mm, 200 steps/rev
+// const float um_per_step = 1.0f / steps_per_um;  // ~19.6078 µm/step
+
+// "Persistent" memory
+struct Param
+{
+  const char* name;
+  float value;
+};
+Param params[PARAM_COUNT] = {
+  { .name = "p1", .value = 1 }, // microstepping
+  { .name = "p2", .value = 2000 },
+};
+
 // Currently runnng command
 const char* cmd = CMD_NONE;
 unsigned long cmdStart = 0;
@@ -35,7 +59,7 @@ struct {
   float step = 0;
   bool back = false;
   int sent = 0;
-  float pointDistance() const { return range / float(SCAN_POINT_COUNT-1); }
+  float pointDistance() const { return 1.0f / (steps_per_um * params[PARAM_MICROSTEPS].value); }
 } cmdScanArgs;
 struct {
   int sent = -1;
@@ -44,27 +68,9 @@ struct {
   float value = 0;
 } cmdParamArgs;
 
-// Stage position
-bool homed = false;
-float position = 0;  // Convention: Position is given in μm!
-float steps_per_um = 0.05102; // --> Pitch of lead screw / steps per full motor revolution: In this example pitch is 3.92 mm, 200 steps/rev
-const float um_per_step = 1.0f / steps_per_um;  // ~19.6078 µm/step
-
-// "Persistent" memory
-struct Param
-{
-  const char* name;
-  float value;
-};
-Param params[PARAM_COUNT] = {
-  { .name = "p1", .value = 16 },
-  { .name = "p2", .value = 50.005 },
-  { .name = "p3", .value = 0.5 },
-};
-
 /* homing parameters */
 uint16_t homing_motor_microsteps = 0;
-uint16_t post_homing_steps = 350; // (small stage: 350, big stage: 2000)
+uint16_t post_homing_steps = 2000; // (small stage: 350, big stage: 2000)
 uint32_t homing_stepper_current = 300; // default: 300
 int32_t homing_velocity = 1000 / 0.715f;
 
@@ -73,7 +79,7 @@ uint16_t motor_microsteps = 0;
 uint32_t stepper_current = 300; // default: 300
 
 // IF StallGuard does not work, it's because these two values are not set correctly or your pins are not correct.
-uint8_t set_stall = 50;         //Do not set the value too high or the TMC will not detect it. Start low and work your way up. (small stage: 50, big stage: )
+uint8_t set_stall = 100;         //Do not set the value too high or the TMC will not detect it. Start low and work your way up. (small stage: 50, big stage: )
 uint32_t set_tcools = 70;      // Set 1.2 times higher than the max TSTEP value you see
 
 volatile bool stalled_motor = false;
@@ -121,9 +127,7 @@ void homing(){
   // stop when stalled at the endstop
   while (isRunning){
     // Uncomment below for debugging
-    // Serial.print(driver.SG_RESULT());
-    // Serial.print(" ");
-    // Serial.println(driver.TSTEP());
+    Serial.print(driver.SG_RESULT()); Serial.print(" "); Serial.println(driver.TSTEP());
     if (stalled_motor) {
       driver.VACTUAL(0);
       isRunning = false;
@@ -139,19 +143,19 @@ void homing(){
 
   // move back to roughly the middle of the stage
   digitalWrite(DIR_PIN, LOW);
-  uint32_t idx = post_homing_steps;
+  uint32_t idx = params[PARAM_POST_HOMING_STEPS].value;
   while (idx > 0){
     idx--;
     digitalWrite(STEP_PIN, HIGH);
-    delay(2);
+    delay(1);
     digitalWrite(STEP_PIN, LOW);
-    delay(2);
+    delay(1);
   }
 
-  /* set current and microstepping to homing parameters */
+  /* set current and microstepping to normal movement parameters */
   detachInterrupt(digitalPinToInterrupt(STALLGUARD_PIN));
   driver.rms_current(stepper_current);
-  driver.microsteps(motor_microsteps);
+  driver.microsteps(params[PARAM_MICROSTEPS].value);
 
   // set position to 0.0
   position = 0.0;
@@ -161,39 +165,13 @@ void homing(){
 
 }
 
-/*
-void move_to_position(float target_position){
-  bool dir;
-  float sign;
-  if (target_position - position > 0){
-    dir = HIGH;
-    sign = +1.0;
-  } else {
-    dir = LOW;
-    sign = -1.0;
-  }
-  digitalWrite(DIR_PIN, dir);
-  int steps = abs((target_position - position) * steps_per_um);
-  Serial.print("moving to position  ");
-  Serial.print(target_position);
-  Serial.print("  from  ");
-  Serial.print(position);
-  Serial.print("  by taking steps  ");
-  Serial.println(steps);
-  for (steps; steps > 0; steps--){
-    digitalWrite(STEP_PIN, HIGH);
-    delay(2);
-    digitalWrite(STEP_PIN, LOW);
-    delay(2);
-    position = position + sign / steps_per_um;
-  }
-}
-*/
-
 void move_to_position(float target_position){
   float delta_um = target_position - position;
-  int steps = (int)llroundf((target_position - position) / um_per_step);
-  if (steps == 0) return;  // nothing to do
+  int steps = (int)roundf((target_position - position) * steps_per_um * params[PARAM_MICROSTEPS].value);
+  if (steps == 0){
+    Serial.println("no steps taken");
+    return;  // nothing to do
+  }
 
   bool dir = steps > 0 ? HIGH : LOW;
   int n = abs(steps);
@@ -206,7 +184,7 @@ void move_to_position(float target_position){
     delay(2);
   }
 
-  position += steps / steps_per_um;  // exactly matches what we stepped
+  position += steps / (steps_per_um * params[PARAM_MICROSTEPS].value); 
 }
 
 void setup()
@@ -217,7 +195,6 @@ void setup()
   // start serial comms
   Serial.begin(BAUD_RATE);
   Serial1.begin(115200);
-
 
   // define pin modes
   pinMode(STALLGUARD_PIN, INPUT);
@@ -234,7 +211,7 @@ void setup()
   driver.I_scale_analog(false);         // Disbaled to use the extrenal current sense resistors
   driver.internal_Rsense(false);        // Use the external Current Sense Resistors. Do not use the internal resistor as it can't handle high current.
   driver.mstep_reg_select(true);        // Microstep resolution selected by MSTEP register and NOT from the legacy pins.
-  driver.microsteps(motor_microsteps);  // Set the number of microsteps. Due to the "MicroPlyer" feature, all steps get converterd to 256 microsteps automatically. However, setting a higher step count allows you to more accurately more the motor exactly where you want.
+  //driver.microsteps(0);
   driver.TPWMTHRS(0);                   // DisableStealthChop PWM mode/ Page 25 of datasheet
   driver.semin(0);                      // Turn off smart current control, known as CoolStep. It's a neat feature but is more complex and messes with StallGuard.
   driver.shaft(false);                  // Set the shaft direction. Only use this command one time during setup to change the direction of your motor.
@@ -252,6 +229,10 @@ void setup()
   blink(3, FAST_BLINK_DELAY);
 
   randomSeed(analogRead(A0));
+
+  // Use full ADC resolution on UNO R4 Minima (14-bit -> 0..16383)
+  analogReadResolution(14);
+  SENSOR_SCALE = (5.0f / 16383.0f)
 
   showHello();
 }
@@ -461,6 +442,7 @@ void endCommand(bool stopped)
       if (cmdParamArgs.index < PARAM_COUNT) {
         if (cmdParamArgs.set) {
           params[cmdParamArgs.index].value = cmdParamArgs.value;
+          driver.microsteps(params[PARAM_MICROSTEPS].value); // update microstepping here
           Serial.println(ANS_OK);
         } else {
           sendParam(cmdParamArgs.index);
@@ -499,6 +481,7 @@ void startScan(bool inf)
   if (cmdScanArgs.range == 0)
     cmdScanArgs.range = SCAN_RANGE_DEFAULT;
   cmdScanArgs.step = cmdScanArgs.pointDistance();
+  Serial.print("Scan params "); Serial.print(cmdScanArgs.range); Serial.print(" "); Serial.println(cmdScanArgs.step);
 
   // Move the stage to the scan start position
   // so the single scan loop looks like
@@ -514,14 +497,13 @@ void startScan(bool inf)
 
 bool sendScanPoint()
 {
-  int sensorValue = analogRead(ADC_PIN);
-  // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
-  float level = sensorValue * (5.0 / 1023.0);
+  // read ADC and convert to a voltage (0 - 5V):
+  float level = analogRead(ADC_PIN) * SENSOR_SCALE;
   Serial.print(ANS_OK); Serial.print(' '); Serial.print(position); Serial.print(' '); Serial.println(level);
   cmdScanArgs.sent++;
   if (cmdScanArgs.step == 0)
     cmdScanArgs.step = cmdScanArgs.back ? -cmdScanArgs.pointDistance() : cmdScanArgs.pointDistance();
-  if (cmdScanArgs.sent == SCAN_POINT_COUNT)
+  if (cmdScanArgs.sent == (int) roundf(cmdScanArgs.range / cmdScanArgs.pointDistance()))
   {
     if (cmd == CMD_SCAN)
     {
@@ -549,11 +531,11 @@ bool sendScanPoint()
       cmdScanArgs.step = 0;
     }
   }
-  if (SCAN_POINT_DURATION >= 250 || cmdScanArgs.sent % 10 == 0)
-  {
-    showCommand();
-    showPosition();
-  }
+//  if (SCAN_POINT_DURATION >= 250 || cmdScanArgs.sent % 10 == 0)
+//  {
+//    showCommand();
+//    showPosition();
+//  }
   cmdStart = millis();
   return true;
 }
@@ -572,7 +554,7 @@ void sendParam(int i)
     // So if we know a parameter has a higher resolution,
     // we should configure both - the sending here
     // and the parameter spec in board_config.ini
-    Serial.println(params[i].value, 3);
+    Serial.println(params[i].value, 0);
   } else {
     Serial.println(params[i].value);
   }

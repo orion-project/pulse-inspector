@@ -14,7 +14,7 @@
 #define CMD_PARAM_DURATION 100
 #define CMD_ERROR "$DE"
 
-#define SCAN_POINT_COUNT 201
+#define SCAN_POINT_COUNT 601
 #define SCAN_POINT_DURATION 10
 #define SCAN_RANGE_DEFAULT 150
 
@@ -29,4 +29,4 @@
 #define ERR_CMD_BAD_ARG 105 // Invalid command argument
 #define ERR_PARAM_UNKNOWN 106 // Unknown firmware parameter
 
-#define PARAM_COUNT 3
+#define PARAM_COUNT 2

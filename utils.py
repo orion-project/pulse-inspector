@@ -25,6 +25,7 @@ def load_icon(icon_file) -> QIcon:
   fn = icon_file
   if not fn.endswith(".svg") and not fn.endswith(".png"):
     fn += ".svg"
+  print("Load icon", os.path.join(app_dir(), 'img', fn))
   return QIcon(os.path.join(app_dir(), 'img', fn))
 
 def load_json(file_name) -> dict:
