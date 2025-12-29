@@ -1,4 +1,9 @@
 history:
+- version: 0.0.3
+  date:
+  changes:
+  - text: Can zoom and pan plot
+
 - version: 0.0.2
   date: 2025-11-19
   changes:

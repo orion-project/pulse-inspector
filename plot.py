@@ -2,6 +2,7 @@ from enum import Enum
 import logging
 import numpy as np
 from scipy.optimize import curve_fit
+from collections import namedtuple
 
 # There are tons of debug messages about found fonts
 # that makes the global DEBUG level totally useless
@@ -9,7 +10,10 @@ logging.getLogger('matplotlib').level = logging.WARN
 logging.getLogger('matplotlib.font_manager').level = logging.WARN
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.figure import Figure
+
+Point = namedtuple('Point', 'x y')
 
 class FIT(Enum):
   gauss = 0
@@ -17,6 +21,7 @@ class FIT(Enum):
   sech2 = 2
 
 LIGHT_SPEED = 0.299792458 # mkm/fs
+ZOOM_FACTOR = 0.2 # zoom in/out factor per operation
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +30,10 @@ class Plot(FigureCanvas):
   show_delay = True
   x_data = None
   y_data = None
+  _zoom_mode = "xy"
+  _custom_lims_x = None
+  _custom_lims_y = None
+  _pan_start: Point = None
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -32,6 +41,11 @@ class Plot(FigureCanvas):
     self.fig.tight_layout(pad=4.0, w_pad=1.0, h_pad=1.0)
     super().__init__(self.fig)
     self.setParent(parent)
+
+    self.mpl_connect('button_press_event', self._on_mouse_press)
+    self.mpl_connect('motion_notify_event', self._on_mouse_move)
+    self.mpl_connect('button_release_event', self._on_mouse_release)
+    self.mpl_connect('scroll_event', self._on_mouse_scroll)
 
   def show_as_pos(self):
     self.show_delay = False
@@ -58,10 +72,13 @@ class Plot(FigureCanvas):
     self.y_data = np.array(y)
     self._replot()
 
+  def _is_empty(self):
+    return self.x_data is None
+
   def _replot(self):
     self.axes.clear()
 
-    if self.x_data is None:
+    if self._is_empty():
       return
 
     # For delay calculation we need to double the positions
@@ -80,6 +97,10 @@ class Plot(FigureCanvas):
     #self.axes.set_title('')
     self.axes.grid(True, alpha=0.3)
     self.axes.legend()
+    if self._custom_lims_x is not None:
+      self.axes.set_xlim(*self._custom_lims_x)
+    if self._custom_lims_y is not None:
+      self.axes.set_ylim(*self._custom_lims_y)
     self.draw()
 
   def fit_and_plot(self):
@@ -183,6 +204,83 @@ class Plot(FigureCanvas):
       #fontsize=9,
       #family='monospace'
     )
+
+  def set_zoom_x(self):
+    self._zoom_mode = "x"
+
+  def set_zoom_y(self):
+    self._zoom_mode = "y"
+
+  def set_zoom_xy(self):
+    self._zoom_mode = "xy"
+
+  def _zoom(self, step, center_x=None, center_y=None):
+    if self._is_empty():
+      return
+
+    factor = (1 - ZOOM_FACTOR) if step > 0 else (1 + ZOOM_FACTOR)
+
+    def get_new_lim(old_lim, center):
+      (c_pix, c_dat) = center
+      (min_old, max_old) = old_lim
+      range_old = max_old - min_old
+      range_new = range_old * factor
+      scale_old = c_pix / (c_dat - min_old)
+      min_new = c_dat - c_pix * factor / scale_old
+      return (min_new, min_new + range_new)
+
+    if "x" in self._zoom_mode:
+      self._custom_lims_x = get_new_lim(self.axes.get_xlim(), center_x)
+      self.axes.set_xlim(*self._custom_lims_x)
+    if "y" in self._zoom_mode:
+      self._custom_lims_y = get_new_lim(self.axes.get_ylim(), center_y)
+      self.axes.set_ylim(*self._custom_lims_y)
+    self.draw()
+
+  def reset_zoom(self):
+    self._custom_lims_x = None
+    self._custom_lims_y = None
+    self._replot()
+
+  def _on_mouse_press(self, event: MouseEvent):
+    if self._is_empty():
+      return
+    if event.inaxes != self.axes:
+      return
+    if event.button == MouseButton.MIDDLE:
+      x = float(event.x)
+      y = float(event.y)
+      if x is None or y is None: return
+      self._pan_start = Point(x, y)
+
+  def _on_mouse_move(self, event: MouseEvent):
+    if not self._pan_start:
+      return
+    x = float(event.x)
+    y = float(event.y)
+    if x is None or y is None: return
+    x_lim = self.axes.get_xlim()
+    y_lim = self.axes.get_ylim()
+    rect = self.axes.get_window_extent()
+    x_scale = rect.width / (x_lim[1] - x_lim[0])
+    y_scale = rect.height / (y_lim[1] - y_lim[0])
+    dx = (self._pan_start.x - x) / x_scale
+    dy = (self._pan_start.y - y) / y_scale
+    self._pan_start = Point(x, y)
+    self._custom_lims_x = x_lim + dx
+    self._custom_lims_y = y_lim + dy
+    self.axes.set_xlim(*self._custom_lims_x)
+    self.axes.set_ylim(*self._custom_lims_y)
+    self.draw()
+
+  def _on_mouse_release(self, event: MouseEvent):
+    if event.button == MouseButton.MIDDLE:
+      self._pan_start = None
+
+  def _on_mouse_scroll(self, event):
+    if event.inaxes != self.axes:
+      return
+    self._zoom(event.step, center_x=(event.x, event.xdata), center_y=(event.y, event.ydata))
 
   def _calc_measured_fwhm(self):
     """

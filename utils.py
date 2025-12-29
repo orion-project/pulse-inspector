@@ -26,7 +26,7 @@ def load_icon_svg(icon_file) -> QIcon:
   if not fn.endswith(".svg") and not fn.endswith(".png"):
     fn += ".svg"
   fn = os.path.join(app_dir(), "img", fn)
-  print("Load icon", fn)
+  #print("Load icon", fn)
   return QIcon(fn)
 
 def load_icon_png(icon_file) -> QIcon:
@@ -34,7 +34,7 @@ def load_icon_png(icon_file) -> QIcon:
   if not fn.endswith(".png"):
     fn += ".png"
   fn = os.path.join(app_dir(), "img", fn)
-  print("Load icon", fn)
+  #print("Load icon", fn)
   return QIcon(fn)
 
 _ICONS = {}
@@ -53,7 +53,7 @@ def load_icon_zip(icon_file) -> QIcon:
     icons_zip = os.path.join(app_dir(), 'img', 'icons.zip')
     with ZipFile(icons_zip, mode='r') as z:
       for name in z.namelist():
-        print(f"Load icon", os.path.join(icons_zip, name))
+        #print(f"Load icon", os.path.join(icons_zip, name))
         svg_bytes = z.read(name)
         renderer = QSvgRenderer(svg_bytes)
         pixmap = QPixmap(200, 200)
