@@ -119,8 +119,8 @@ class MainWindow(QMainWindow):
     self.act_stop = A("Stop", board.stop, m, key="Ctrl+B", icon="stop")
 
     m = self.menuBar().addMenu("Scan")
-    self.act_scan = A("Single", board.scan, m, key="F5", icon="photo", hint="Single Scan")
-    self.act_scans = A("Continuous", board.scans, m, key="F9", icon="video", hint="Continuous Scanning")
+    self.act_scan = A("Single", board.scan, m, key="F5", icon="scan_one", hint="Single Scan")
+    self.act_scans = A("Continuous", board.scans, m, key="F9", icon="scan_cont", hint="Continuous Scanning")
     m.addSeparator()
     for r in board.config.scan_ranges():
       A(r.name, board.set_scan_range, m, group=f"scan_range|{r.range}", arg=r.range)

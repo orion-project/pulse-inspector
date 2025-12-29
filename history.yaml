@@ -5,6 +5,7 @@ history:
   - text: Can zoom and pan plot
   - text: Can hide fit graph
   - text: Can show normalized graph
+  - text: Change scan icons
 
 - version: 0.0.2
   date: 2025-11-19
