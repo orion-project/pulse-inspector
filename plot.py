@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 class Plot(FigureCanvas):
   fit_type = FIT.gauss
   show_delay = True
+  show_norm = False
   x_data = None
   y_data = None
   _zoom_mode = "xy"
@@ -48,12 +49,20 @@ class Plot(FigureCanvas):
     self.mpl_connect('button_release_event', self._on_mouse_release)
     self.mpl_connect('scroll_event', self._on_mouse_scroll)
 
-  def show_as_pos(self):
+  def show_x_pos(self):
     self.show_delay = False
     self._replot()
 
-  def show_as_delay(self):
+  def show_x_delay(self):
     self.show_delay = True
+    self._replot()
+
+  def show_y_raw(self):
+    self.show_norm = False
+    self._replot()
+
+  def show_y_norm(self):
+    self.show_norm = True
     self._replot()
 
   def fit_none(self):
@@ -155,6 +164,14 @@ class Plot(FigureCanvas):
       #x_fit = np.linspace(self.xs[0], self.xs[-1], len(self.xs))
       self.x_fit = self.xs
       self.y_fit = fit_func(self.x_fit, amplitude, center, width)
+
+      if self.show_norm:
+        if self.fit_type != FIT.none:
+          max = np.max(self.y_fit)
+          self.y_fit = self.y_fit / max
+          self.ys = self.ys / max
+        else:
+          self.ys = self.ys / amplitude_guess
 
       return {
         "amplitude": amplitude,
