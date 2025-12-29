@@ -124,6 +124,12 @@ class MainWindow(QMainWindow):
     m.addSeparator()
     for r in board.config.scan_ranges():
       A(r.name, board.set_scan_range, m, group=f"scan_range|{r.range}", arg=r.range)
+
+    m = self.menuBar().addMenu("Plot")
+    A("Zoom Both Axes", self.plot.set_zoom_xy, m, group="zoom_type|xy", icon="zoom")
+    A("Zoom Only X-axis", self.plot.set_zoom_x, m, group="zoom_type|x", icon="zoom_x")
+    A("Zoom Only Y-axis", self.plot.set_zoom_y, m, group="zoom_type|y", icon="zoom_y")
+    A("Reset Zoom", self.plot.reset_zoom, m, key="Ctrl+0", icon="zoom_0")
     m.addSeparator()
     A("Show Delay", self.plot.show_as_delay, m, group="plot_x|delay")
     A("Show Position", self.plot.show_as_pos, m, group="plot_x|pos")
@@ -131,12 +137,7 @@ class MainWindow(QMainWindow):
     A("Gaussian Fit", self.plot.fit_gauss, m, group="fit_type|gauss")
     A("Lorentzian Fit", self.plot.fit_lorentz, m, group="fit_type|lorentz")
     A("sech² Fit", self.plot.fit_sech2, m, group="fit_type|sech")
-
-    m = self.menuBar().addMenu("Plot")
-    A("Zoom Both Axes", self.plot.set_zoom_xy, m, group="zoom_type|xy", icon="zoom")
-    A("Zoom Only X-axis", self.plot.set_zoom_x, m, group="zoom_type|x", icon="zoom_x")
-    A("Zoom Only Y-axis", self.plot.set_zoom_y, m, group="zoom_type|y", icon="zoom_y")
-    A("Reset Zoom", self.plot.reset_zoom, m, key="Ctrl+0", icon="zoom_0")
+    A("No Fit", self.plot.fit_none, m, group="fit_type|none")
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")

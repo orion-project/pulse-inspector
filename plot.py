@@ -16,9 +16,10 @@ from matplotlib.figure import Figure
 Point = namedtuple('Point', 'x y')
 
 class FIT(Enum):
-  gauss = 0
-  lorentz = 1
-  sech2 = 2
+  none = 0
+  gauss = 1
+  lorentz = 2
+  sech2 = 3
 
 LIGHT_SPEED = 0.299792458 # mkm/fs
 ZOOM_FACTOR = 0.2 # zoom in/out factor per operation
@@ -55,6 +56,10 @@ class Plot(FigureCanvas):
     self.show_delay = True
     self._replot()
 
+  def fit_none(self):
+    self.fit_type = FIT.none
+    self._replot()
+
   def fit_gauss(self):
     self.fit_type = FIT.gauss
     self._replot()
@@ -86,12 +91,15 @@ class Plot(FigureCanvas):
     self.xs = [*((self.x_data*2.0) if self.show_delay else self.x_data)]
     self.ys = self.y_data
 
+    # Even when we hide the fit graph we still need to calc a fit
+    # to find the peak center and calculate delay properly
     fit_params = self.fit_and_plot()
     if not fit_params: return
 
-    self.show_fit_params(fit_params)
     self.axes.plot(self.xs, self.ys, 'b-', linewidth=1.5, label="Experimental", alpha=0.7)
-    self.axes.plot(self.x_fit, self.y_fit, 'r-', linewidth=2, label=fit_params["label"])
+    if self.fit_type != FIT.none:
+      self.axes.plot(self.x_fit, self.y_fit, 'r-', linewidth=2, label=fit_params["label"])
+      self.show_fit_params(fit_params)
     self.axes.set_xlabel("Delay (fs)" if self.show_delay else "Position (um)")
     self.axes.set_ylabel("Intensity (a.u.)")
     #self.axes.set_title('')
@@ -126,11 +134,9 @@ class Plot(FigureCanvas):
     elif self.fit_type == FIT.lorentz:
       fit_func = lorentzian
       fit_label = "Lorentzian Fit"
-    elif self.fit_type == FIT.sech2:
+    else:
       fit_func = sech_squared
       fit_label = "sech² Fit"
-    else:
-        return None
 
     try:
       amplitude_guess = np.max(self.ys)

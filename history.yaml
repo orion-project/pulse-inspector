@@ -3,6 +3,7 @@ history:
   date:
   changes:
   - text: Can zoom and pan plot
+  - text: Can hide fit graph
 
 - version: 0.0.2
   date: 2025-11-19
