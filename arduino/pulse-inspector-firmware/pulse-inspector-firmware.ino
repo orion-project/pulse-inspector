@@ -414,7 +414,7 @@ void endCommand(bool stopped)
   }
   else if (cmd == CMD_JOG)
   {
-    position += cmdArg.jogDistance;
+    //position += cmdArg.jogDistance; -- position is already updated during move_to_position
     if (homed)
     {
       Serial.print(ANS_OK); Serial.print(' '); Serial.println(position);

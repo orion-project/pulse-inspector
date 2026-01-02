@@ -6,7 +6,8 @@ history:
   - text: Can hide fit graph
   - text: Can show normalized graph
   - text: Update scan icons
-  - text: Fix: position button width changes when jogging
+  - text: 'Fix: position button width changes when jogging'
+  - text: 'Fix: firmware returned doubled position after jogging'
 
 - version: 0.0.2
   date: 2025-11-19
