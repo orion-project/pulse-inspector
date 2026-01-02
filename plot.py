@@ -3,6 +3,10 @@ import logging
 import numpy as np
 from scipy.optimize import curve_fit
 from collections import namedtuple
+import os
+from datetime import datetime
+from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtCore import QStandardPaths
 
 # There are tons of debug messages about found fonts
 # that makes the global DEBUG level totally useless
@@ -12,6 +16,9 @@ logging.getLogger('matplotlib.font_manager').level = logging.WARN
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.figure import Figure
+
+from consts import APP_NAME
+from utils import app_settings
 
 Point = namedtuple('Point', 'x y')
 
@@ -36,6 +43,8 @@ class Plot(FigureCanvas):
   _custom_lims_x = None
   _custom_lims_y = None
   _pan_start: Point = None
+  _autosave = False
+  _autosave_dir = None
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -85,6 +94,7 @@ class Plot(FigureCanvas):
     self.x_data = np.array(x)
     self.y_data = np.array(y)
     self._replot()
+    self._save_data_auto()
 
   def _is_empty(self):
     return self.x_data is None
@@ -349,3 +359,73 @@ class Plot(FigureCanvas):
     except Exception as e:
       log.exception("Failed to calculate measured FWHM")
       return None
+
+  def load_settings(self, s):
+    self._autosave_dir = s.value("autosave_dir")
+    # self._autosave is loaded in main window as part of generic options loading
+
+  def set_autosave(self, on):
+    log.info("Autosave " + ("enabled" if on else "disabled"))
+    self._autosave = on
+
+  def choose_autosave_dir(self):
+    data_dir = QFileDialog.getExistingDirectory(self, APP_NAME, self._autosave_dir, QFileDialog.ShowDirsOnly)
+    if data_dir:
+      self._autosave_dir = data_dir
+      app_settings().setValue("autosave_dir", data_dir)
+      log.info(f"Autosave dir is {data_dir}")
+
+  def _make_data_filename(self, data_dir):
+    timestamp = datetime.now().isoformat(timespec="milliseconds").replace(":", "-")
+    return os.path.join(data_dir, f"ac_{timestamp}.txt")
+
+  def _save_data(self, file_path, show_error=False):
+    try:
+      data = [self.xs, self.ys, self.y_fit] if self.fit_type != FIT.none else [self.xs, self.ys]
+      np.savetxt(file_path, np.array(data).T)
+      log.info(f"Data saved to {file_path}")
+    except Exception as e:
+      log.exception("Failed to save data")
+      if show_error:
+        QMessageBox.critical(self, APP_NAME, f"Failed to save data:\n{e}")
+
+  def _save_data_auto(self):
+    if not self._autosave or self._is_empty():
+      return
+    if not self._autosave_dir:
+      data_dir = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
+      data_dir = os.path.join(data_dir, "autocorrelation-measurements")
+      if not os.path.exists(data_dir):
+        try:
+          os.mkdir(data_dir)
+          log.info(f"Autosave dir created: {data_dir}")
+        except Exception as e:
+          log.exception("Failed to create autosave dir")
+      else:
+        log.info(f"Autosave dir exists: {data_dir}")
+      self._autosave_dir = data_dir
+    self._save_data(self._make_data_filename(self._autosave_dir))
+
+  def save_data_dlg(self):
+    """
+    Show save file dialog and export plot data to a text file.
+    """
+    if self._is_empty():
+      QMessageBox.warning(self, APP_NAME, "There is no data to save.")
+      return
+
+    s = app_settings()
+    data_dir = s.value("data_dir")
+
+    if not data_dir or not os.path.isdir(data_dir):
+      data_dir = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
+
+    file_path, _ = QFileDialog.getSaveFileName(
+      self,
+      "Save Plot Data",
+      self._make_data_filename(data_dir),
+      "Text Files (*.txt);;All Files (*.*)",
+    )
+    if file_path:
+      s.setValue("data_dir", os.path.dirname(file_path))
+      self._save_data(file_path, True)

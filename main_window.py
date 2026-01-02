@@ -18,6 +18,7 @@ BUTTON_POS_MIN_W = 80
 class MainWindow(QMainWindow):
   action_groups = {}
   action_handlers = {}
+  checkable_actions = {}
 
   def __init__(self, dev_mode=False):
     super().__init__()
@@ -40,6 +41,12 @@ class MainWindow(QMainWindow):
     board.on_param_stored.connect(self.board_param_stored)
     board.on_stage_moved.connect(self.show_position)
 
+    self.load_settings()
+    self.show_connection()
+    self.update_actions()
+    #self.plot.draw_graph(*make_sample_profile())
+
+  def load_settings(self):
     # Load checked options
     s = app_settings()
     for name in self.action_groups:
@@ -56,10 +63,14 @@ class MainWindow(QMainWindow):
         a = group.actions()[0]
         a.setChecked(True)
         a.trigger()
-
-    self.show_connection()
-    self.update_actions()
-    #self.plot.draw_graph(*make_sample_profile())
+    # Load checked flags
+    for action in self.checkable_actions:
+      if action.objectName():
+        is_checked = bool(s.value(action.objectName()))
+        action.setChecked(is_checked)
+        self.checkable_actions[action](is_checked)
+    # Load component settings
+    self.plot.load_settings(s)
 
   def _action_handler(self):
     (handler, arg) = self.action_handlers[self.sender()]
@@ -68,15 +79,17 @@ class MainWindow(QMainWindow):
   def _action_group_triggered(self, action):
     app_settings().setValue(self.sender().objectName(), action.objectName())
 
+  def _checkable_action_triggered(self):
+    action = self.sender()
+    if action.objectName():
+      app_settings().setValue(action.objectName(), action.isChecked())
+    self.checkable_actions[action](action.isChecked())
+
   def create_menu_bar(self):
 
     def A(title, handler, menu, **kwargs):
+      handler_added = False
       a = QAction(title, self)
-      if "arg" in kwargs:
-        self.action_handlers[a] = (handler, kwargs["arg"])
-        a.triggered.connect(self._action_handler)
-      else:
-        a.triggered.connect(handler)
       if "key" in kwargs:
         a.setShortcut(kwargs["key"])
       if "icon" in kwargs:
@@ -95,9 +108,20 @@ class MainWindow(QMainWindow):
         a.setCheckable(True)
         a.setActionGroup(group)
         a.setObjectName(id)
-      if "checked" in kwargs:
+      if "check" in kwargs:
         a.setCheckable(True)
-        a.setChecked(kwargs["checked"])
+        # Pass id to make the check-state storable
+        if "id" in kwargs:
+          a.setObjectName(kwargs["id"])
+        a.triggered.connect(self._checkable_action_triggered)
+        self.checkable_actions[a] = handler
+        handler_added = True
+      if not handler_added:
+        if "arg" in kwargs:
+          self.action_handlers[a] = (handler, kwargs["arg"])
+          a.triggered.connect(self._action_handler)
+        else:
+          a.triggered.connect(handler)
       if menu:
         menu.addAction(a)
       return a
@@ -127,6 +151,10 @@ class MainWindow(QMainWindow):
     m.addSeparator()
     for r in board.config.scan_ranges():
       A(r.name, board.set_scan_range, m, group=f"scan_range|{r.range}", arg=r.range)
+    m.addSeparator()
+    self.act_save_data = A("Save Current Data...", self.plot.save_data_dlg, m, key="Ctrl+S", icon="save")
+    A("Autosave Every Scan", self.plot.set_autosave, m, check=True, id="autosave")
+    A("Choose Autosave Dir...", self.plot.choose_autosave_dir, m)
 
     m = self.menuBar().addMenu("Plot")
     A("X - Show Delay", self.plot.show_x_delay, m, group="plot_x|delay")
@@ -190,6 +218,8 @@ class MainWindow(QMainWindow):
     tb.addAction(self.act_scans)
     tb.addSeparator()
     tb.addAction(self.act_stop)
+    tb.addSeparator()
+    tb.addAction(self.act_save_data)
 
   def create_status_bar(self):
     self.lab_connected = QLabel()

@@ -5,6 +5,7 @@ history:
   - text: Can zoom and pan plot
   - text: Can hide fit graph
   - text: Can show normalized graph
+  - text: Can save data to file (auto and manually)
   - text: Update scan icons
   - text: 'Fix: position button width changes when jogging'
   - text: 'Fix: firmware returned doubled position after jogging'
