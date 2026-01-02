@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from board import board
 from board_params_dialog import BoardParamsDialog
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD
-from plot import Plot
+from plot import Plot, FIT
 from utils import load_icon, app_settings, VisibilityEventFilter, make_sample_profile
 
 log = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
     self.load_settings()
     self.show_connection()
     self.update_actions()
-    #self.plot.draw_graph(*make_sample_profile())
+    self.plot.draw_graph(*make_sample_profile())
 
   def load_settings(self):
     # Load checked options
@@ -156,23 +156,23 @@ class MainWindow(QMainWindow):
     m.addSeparator()
     self.act_save_data = A("Save Current Data...", self.plot.save_data_dlg, m, key="Ctrl+S", icon="save")
     A("Autosave Every Scan", self.plot.set_autosave, m, check=True, id="autosave")
-    A("Choose Autosave Dir...", self.plot.choose_autosave_dir, m)
+    A("Choose Autosave Path...", self.plot.choose_autosave_dir, m)
 
     m = self.menuBar().addMenu("Plot")
-    A("X - Show Delay", self.plot.show_x_delay, m, group="plot_x|delay")
-    A("X - Show Position", self.plot.show_x_pos, m, group="plot_x|pos")
+    A("X - Show Delay", self.plot.show_x_delay, m, arg=True, group="plot_x|delay")
+    A("X - Show Position", self.plot.show_x_delay, m, arg=False, group="plot_x|pos")
     m.addSeparator()
-    A("Y - Show Raw Values", self.plot.show_y_raw, m, group="plot_y|raw")
-    A("Y - Show Normalized", self.plot.show_y_norm, m, group="plot_y|norm")
+    A("Y - Show Raw Values", self.plot.show_y_norm, m, arg=False, group="plot_y|raw")
+    A("Y - Show Normalized", self.plot.show_y_norm, m, arg=True, group="plot_y|norm")
     m.addSeparator()
-    A("Gaussian Fit", self.plot.fit_gauss, m, group="fit_type|gauss")
-    A("Lorentzian Fit", self.plot.fit_lorentz, m, group="fit_type|lorentz")
-    A("sech² Fit", self.plot.fit_sech2, m, group="fit_type|sech")
-    A("No Fit", self.plot.fit_none, m, group="fit_type|none")
+    A("Gaussian Fit", self.plot.set_fit, m, arg=FIT.gauss, group="fit_type|gauss")
+    A("Lorentzian Fit", self.plot.set_fit, m, arg=FIT.lorentz, group="fit_type|lorentz")
+    A("sech² Fit", self.plot.set_fit, m, arg=FIT.sech2, group="fit_type|sech")
+    A("No Fit", self.plot.set_fit, m, arg=FIT.none, group="fit_type|none")
     m.addSeparator()
-    A("Zoom Both Axes", self.plot.set_zoom_xy, m, group="zoom_type|xy", icon="zoom")
-    A("Zoom Only X-axis", self.plot.set_zoom_x, m, group="zoom_type|x", icon="zoom_x")
-    A("Zoom Only Y-axis", self.plot.set_zoom_y, m, group="zoom_type|y", icon="zoom_y")
+    A("Zoom Both Axes", self.plot.set_zoom_mode, m, arg="xy", group="zoom_type|xy", icon="zoom")
+    A("Zoom Only X-axis", self.plot.set_zoom_mode, m, arg="x", group="zoom_type|x", icon="zoom_x")
+    A("Zoom Only Y-axis", self.plot.set_zoom_mode, m, arg="y", group="zoom_type|y", icon="zoom_y")
     A("Reset Zoom", self.plot.reset_zoom, m, key="Ctrl+0", icon="zoom_0")
 
     if self.dev_mode:

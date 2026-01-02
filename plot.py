@@ -58,36 +58,16 @@ class Plot(FigureCanvas):
     self.mpl_connect('button_release_event', self._on_mouse_release)
     self.mpl_connect('scroll_event', self._on_mouse_scroll)
 
-  def show_x_pos(self):
-    self.show_delay = False
+  def show_x_delay(self, on):
+    self.show_delay = on
     self._replot()
 
-  def show_x_delay(self):
-    self.show_delay = True
+  def show_y_norm(self, on):
+    self.show_norm = on
     self._replot()
 
-  def show_y_raw(self):
-    self.show_norm = False
-    self._replot()
-
-  def show_y_norm(self):
-    self.show_norm = True
-    self._replot()
-
-  def fit_none(self):
-    self.fit_type = FIT.none
-    self._replot()
-
-  def fit_gauss(self):
-    self.fit_type = FIT.gauss
-    self._replot()
-
-  def fit_lorentz(self):
-    self.fit_type = FIT.lorentz
-    self._replot()
-
-  def fit_sech2(self):
-    self.fit_type = FIT.sech2
+  def set_fit(self, fit_type: FIT):
+    self.fit_type = fit_type
     self._replot()
 
   def draw_graph(self, x, y):
@@ -238,14 +218,8 @@ class Plot(FigureCanvas):
       #family='monospace'
     )
 
-  def set_zoom_x(self):
-    self._zoom_mode = "x"
-
-  def set_zoom_y(self):
-    self._zoom_mode = "y"
-
-  def set_zoom_xy(self):
-    self._zoom_mode = "xy"
+  def set_zoom_mode(self, mode):
+    self._zoom_mode = mode
 
   def _zoom(self, step, center_x=None, center_y=None):
     if self._is_empty():
