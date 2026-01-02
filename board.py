@@ -158,7 +158,7 @@ class Board(QObject):
       pass
     self.can_connect = True
     self.can_home = True
-    self.can_move = ok
+    self.can_move = self.homed
     self.can_jog = True
 
   def _jog(self, offset: float):

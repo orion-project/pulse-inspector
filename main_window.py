@@ -1,6 +1,6 @@
 import logging
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction, QActionGroup, QDesktopServices
+from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QFontMetrics
 from PySide6.QtWidgets import (
   QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
 
@@ -11,6 +11,9 @@ from plot import Plot
 from utils import load_icon, app_settings, VisibilityEventFilter, make_sample_profile
 
 log = logging.getLogger(__name__)
+
+BUTTON_POS_MARGIN = 10
+BUTTON_POS_MIN_W = 80
 
 class MainWindow(QMainWindow):
   action_groups = {}
@@ -163,10 +166,12 @@ class MainWindow(QMainWindow):
     self.but_position_on = QToolButton()
     self.but_position_on.setToolTip("Current Position")
     self.but_position_on.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: #00547f;}}")
+    self.but_position_on.setFixedWidth(BUTTON_POS_MIN_W)
     self.but_position_on.clicked.connect(self.go_to_position)
     self.but_position_off = QToolButton()
     self.but_position_off.setToolTip("Current Position\n\nHoming required")
     self.but_position_off.setStyleSheet(f"QToolButton{{font-size: 20px; font-weight: bold; color: gray;}}")
+    self.but_position_off.setFixedWidth(BUTTON_POS_MIN_W)
     self.but_position_off.setEnabled(False)
 
     tb.addAction(self.act_connect)
@@ -254,10 +259,18 @@ class MainWindow(QMainWindow):
     self.lab_port.setText(f"{"Connected" if board.connected else "Disconnected"} {board.port()}")
     self.lab_connected.setVisible(board.connected)
     self.lab_disconnected.setVisible(not board.connected)
+    if not board.connected:
+      self.but_position_on.setFixedWidth(BUTTON_POS_MIN_W)
+      self.but_position_off.setFixedWidth(BUTTON_POS_MIN_W)
 
   def show_position(self):
     pos = board.position
     text = "N/A" if pos is None else f"{pos}"
+    fm = QFontMetrics(self.but_position_on.font())
+    w = fm.size(0, text).width() + 2*BUTTON_POS_MARGIN
+    if w > self.but_position_on.width():
+      self.but_position_on.setFixedWidth(w)
+      self.but_position_off.setFixedWidth(w)
     self.but_position_on.setText(text)
     self.but_position_off.setText(text)
 
