@@ -22,6 +22,7 @@ class Board(QObject):
   _cmd_timeout = 0
   _cmd_args: dict = {}
   _scan_range = None
+  _microstep_jog = False
 
   connected = False
   homed = False
@@ -308,3 +309,8 @@ class Board(QObject):
   def set_scan_range(self, range: float):
     self._scan_range = range
     self.log.info(f"set_scan_range:{range}")
+
+  def use_microstep_jog(self, on):
+    self._microstep_jog = on
+    self.log.info(f"use_microstep_jog:{on}")
+

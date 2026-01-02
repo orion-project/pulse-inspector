@@ -29,7 +29,12 @@ void showCommand()
   if (cmd == CMD_NONE) _("Ready");
   else if (cmd == CMD_HOME) _("Home... ");
   else if (cmd == CMD_MOVE) _("Move... ");
-  else if (cmd == CMD_JOG) _("Jog... ");
+  else if (cmd == CMD_JOG)
+  {
+    String s = "Jog(";
+    s += useMicrosteps ? "1)" : "0)";
+    _(s);
+  }
   else if (cmd == CMD_SCAN || cmd == CMD_SCANS)
   {
     String s = "Scan... ";

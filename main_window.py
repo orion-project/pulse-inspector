@@ -144,6 +144,8 @@ class MainWindow(QMainWindow):
     self.act_jog_forth_long = A("Jog Forward (long)", board.jog_forth_long, m, key="Ctrl+Shift+Right", icon="jog_right_2")
     m.addSeparator()
     self.act_stop = A("Stop", board.stop, m, key="Ctrl+B", icon="stop")
+    m.addSeparator()
+    A("Use Microsteps For Jog", board.use_microstep_jog, m, check=True, id="microstep_jog")
 
     m = self.menuBar().addMenu("Scan")
     self.act_scan = A("Single", board.scan, m, key="F5", icon="scan_one", hint="Single Scan")

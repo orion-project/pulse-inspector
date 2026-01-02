@@ -161,7 +161,7 @@ class VirtualBoard(Board):
       self._mov_prev_time = 0
       self._mov_delta = JOG_DELTA
       self._mov_speed = JOG_SPEED * (1 if offset > 0 else -1)
-      print(f"mov: {self._position_str()}, target={self._mov_target}, speed={self._mov_speed}")
+      print(f"mov: {self._position_str()}, target={self._mov_target}, speed={self._mov_speed}, microstep={self._microstep_jog}")
     elif self._cmd == CMD.scan:
       self._scan_points_x = []
       self._scan_points_y = []

@@ -11,6 +11,7 @@ union {
   float targetPosition = 0;
   float jogDistance;
 } cmdArg;
+bool useMicrosteps = false;
 struct {
   float range = 0;
   float center = 0;
@@ -117,10 +118,27 @@ void loop()
     // process jog command
     else if (newCmd.startsWith(CMD_JOG))
     {
+      auto split1 = newCmd.indexOf(' ');
+      auto split2 = newCmd.lastIndexOf(' ');
+      if (split1 < 0 || split2 < 0) {
+        sendError(ERR_CMD_BAD_ARG);
+        return;
+      }
+      useMicrosteps = false;
+      if (split1 == split2) { // e.g. `$J 5`
+        cmdArg.jogDistance = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
+      } else { // e.g. `$J 5 1`
+        cmdArg.jogDistance = newCmd.substring(split1+1, split2).toFloat();
+        auto microstepsOn = newCmd.substring(split2+1).toInt();
+        if (microstepsOn != 0 && microstepsOn != 1) {
+          sendError(ERR_CMD_BAD_ARG);
+          return;
+        }
+        useMicrosteps = microstepsOn == 1;
+      }
       cmd = CMD_JOG;
       cmdStart = millis();
       cmdDuration = CMD_JOG_DURATION;
-      cmdArg.jogDistance = newCmd.substring(strlen(CMD_JOG)+1).toFloat();
     }
 
     // process scan command

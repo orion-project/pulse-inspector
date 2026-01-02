@@ -125,7 +125,9 @@ class SerialBoard(Board):
       return self._cmd_args.get("pos", 0)
 
     if self._cmd == CMD.jog:
-      return self._cmd_args.get("offset", 0)
+      offset = self._cmd_args.get("offset", 0)
+      microstep = "1" if self._microstep_jog else "0"
+      return f"{offset} {microstep}"
 
     if self._cmd == CMD.scan or self._cmd == CMD.scans:
       self._profile_x = []
