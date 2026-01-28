@@ -65,8 +65,9 @@ class MainWindow(QMainWindow):
         a.trigger()
     # Load checked flags
     for action in self.checkable_actions:
-      if action.objectName():
-        is_checked = bool(s.value(action.objectName()))
+      key = action.objectName()
+      if key and s.contains(key):
+        is_checked = s.value(key) == "true"
         action.setChecked(is_checked)
         self.checkable_actions[action](is_checked)
     # Load component settings
@@ -110,6 +111,8 @@ class MainWindow(QMainWindow):
         a.setObjectName(id)
       if "check" in kwargs:
         a.setCheckable(True)
+        if "checked" in kwargs:
+          a.setChecked(kwargs["checked"])
         # Pass id to make the check-state storable
         if "id" in kwargs:
           a.setObjectName(kwargs["id"])
@@ -169,6 +172,7 @@ class MainWindow(QMainWindow):
     A("Lorentzian Fit", self.plot.set_fit, m, arg=FIT.lorentz, group="fit_type|lorentz")
     A("sech² Fit", self.plot.set_fit, m, arg=FIT.sech2, group="fit_type|sech")
     A("No Fit", self.plot.set_fit, m, arg=FIT.none, group="fit_type|none")
+    A("Adjust Fit to Background", self.plot.set_shift_fit_bgnd, m, check=True, checked=True, id="shift_fit_bgnd")
     m.addSeparator()
     A("Zoom Both Axes", self.plot.set_zoom_mode, m, arg="xy", group="zoom_type|xy", icon="zoom")
     A("Zoom Only X-axis", self.plot.set_zoom_mode, m, arg="x", group="zoom_type|x", icon="zoom_x")

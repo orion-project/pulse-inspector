@@ -87,8 +87,18 @@ def make_sample_profile(start_pos = 10, scan_range = 20):
   x = np.linspace(start_pos, start_pos + scan_range, num_points)
   profile = y_max * np.exp(-((profile_center-x)**2) / (2 * profile_width**2))
   noise = np.random.normal(0, y_max * noise_level, num_points)
-  y = profile + noise
+  background = 0.2 * y_max
+  y = profile + noise + background
   return (x, y)
+
+def calc_background_level(signal: np.array, point_percent = 5):
+  """
+  Calculates background level of the given profile values.
+  The background level is average of several first and last data points;
+  a number of points for averaging is  given as percent of total point count.
+  """
+  n = max(1, int(len(signal) * point_percent / 100))
+  return np.mean(np.concatenate([signal[:n], signal[-n:]]))
 
 class VisibilityEventFilter(QObject):
   """

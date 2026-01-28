@@ -1,4 +1,10 @@
 history:
+- version: 0.0.4
+  date: 2026-01-28
+  changes:
+  - text: Adjust fit graph to background level
+  - text: 'Fix: unchecked options not saved to settings'
+
 - version: 0.0.3
   date: 2026-01-03
   changes:

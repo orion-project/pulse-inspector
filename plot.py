@@ -18,7 +18,7 @@ from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.figure import Figure
 
 from consts import APP_NAME
-from utils import app_settings
+from utils import app_settings, calc_background_level
 
 Point = namedtuple('Point', 'x y')
 
@@ -45,6 +45,7 @@ class Plot(FigureCanvas):
   _pan_start: Point = None
   _autosave = False
   _autosave_dir = None
+  _shift_fit_bgnd = True
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -68,6 +69,10 @@ class Plot(FigureCanvas):
 
   def set_fit(self, fit_type: FIT):
     self.fit_type = fit_type
+    self._replot()
+
+  def set_shift_fit_bgnd(self, on):
+    self._shift_fit_bgnd = on
     self._replot()
 
   def draw_graph(self, x, y):
@@ -94,6 +99,9 @@ class Plot(FigureCanvas):
     # to find the peak center and calculate delay properly
     fit_params = self.fit_and_plot()
     if not fit_params: return
+
+    if self._shift_fit_bgnd:
+      self.y_fit += calc_background_level(self.ys)
 
     self.axes.plot(self.xs, self.ys, 'b-', linewidth=1.5, label="Experimental", alpha=0.7)
     if self.fit_type != FIT.none:
