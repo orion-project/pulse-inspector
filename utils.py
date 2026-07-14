@@ -6,17 +6,17 @@ import numpy as np
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QObject, QEvent, QSettings
 
-_APP_DIR: str = None
+_APP_DIR: str = ''
 
 def app_dir(file_name = None) -> str:
   global _APP_DIR
   if not _APP_DIR:
     if getattr(sys, 'frozen', False):
       # Running in a PyInstaller bundle
-      _APP_DIR = sys._MEIPASS
+      _APP_DIR = getattr(sys, '_MEIPASS')
     else:
       # Running in dev Python environment
-      _APP_DIR = pathlib.Path(__file__).resolve().parent
+      _APP_DIR = str(pathlib.Path(__file__).resolve().parent)
   if file_name:
     return os.path.join(_APP_DIR, file_name)
   return _APP_DIR
@@ -57,7 +57,7 @@ def load_icon_zip(icon_file) -> QIcon:
         svg_bytes = z.read(name)
         renderer = QSvgRenderer(svg_bytes)
         pixmap = QPixmap(200, 200)
-        pixmap.fill(Qt.transparent)
+        pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         renderer.render(painter)
         painter.end()
@@ -78,7 +78,7 @@ def load_json(file_name) -> dict:
     except Exception as e:
       raise Exception(f"Failed to parse file {fn}: {e}")
 
-def make_sample_profile(start_pos = 10, scan_range = 20):
+def make_sample_profile(start_pos = 10.0, scan_range = 20.0):
   profile_center = start_pos + scan_range / 2.0
   y_max = 1000
   profile_width = scan_range / 10.0
@@ -91,7 +91,7 @@ def make_sample_profile(start_pos = 10, scan_range = 20):
   y = profile + noise + background
   return (x, y)
 
-def calc_background_level(signal: np.array, point_percent = 5):
+def calc_background_level(signal: np.ndarray, point_percent = 5):
   """
   Calculates background level of the given profile values.
   The background level is average of several first and last data points;
@@ -116,5 +116,5 @@ class VisibilityEventFilter(QObject):
     return super().eventFilter(obj, event)
 
 def app_settings():
-  s = QSettings(QSettings.IniFormat, QSettings.UserScope, "orion-project.org", "pulse-inspector")
+  s = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "orion-project.org", "pulse-inspector")
   return s

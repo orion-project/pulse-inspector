@@ -15,8 +15,8 @@ class Board(QObject):
   on_param_stored = Signal(bool)
   on_stage_moved = Signal()
 
-  _cmd: CMD = None
-  _next_cmd: CMD = None
+  _cmd: CMD|None = None
+  _next_cmd: CMD|None = None
   _cancel_cmd = False
   _cmd_start = 0
   _cmd_timeout = 0
@@ -34,15 +34,15 @@ class Board(QObject):
   can_jog = False
   can_stop = False
 
-  position: float = None
+  position: float|None = None
 
   log: logging.Logger
 
-  def __init__(self, log, config_file):
+  def __init__(self, log, config: Config):
     super().__init__()
 
     self.log = log
-    self.config = Config(config_file)
+    self.config = config
 
     self._lock = threading.Lock()
     self._thread = threading.Thread(target=self.loop, daemon=True)
@@ -50,6 +50,14 @@ class Board(QObject):
 
     global board
     board = self
+
+  def loop(self):
+    # to be overriden
+    pass
+
+  def port(self) -> str:
+    # to be overriden
+    return ''
 
   def _disable_all(self):
     self.can_connect = False
@@ -177,16 +185,16 @@ class Board(QObject):
       self._lock.release()
 
   def jog_forth(self):
-    self._jog(self.config.value("operations/jog_distance", 0.25))
+    self._jog(self.config.value(float, "operations/jog_distance", 0.25))
 
   def jog_forth_long(self):
-    self._jog(self.config.value("operations/jog_distance_long", 1))
+    self._jog(self.config.value(float, "operations/jog_distance_long", 1))
 
   def jog_back(self):
-    self._jog(-self.config.value("operations/jog_distance", 0.25))
+    self._jog(-self.config.value(float, "operations/jog_distance", 0.25))
 
   def jog_back_long(self):
-    self._jog(-self.config.value("operations/jog_distance_long", 1))
+    self._jog(-self.config.value(float, "operations/jog_distance_long", 1))
 
   def get_position(self):
     self._jog(0)

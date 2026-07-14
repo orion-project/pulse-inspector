@@ -81,10 +81,12 @@ class MainWindow(QMainWindow):
     app_settings().setValue(self.sender().objectName(), action.objectName())
 
   def _checkable_action_triggered(self):
-    action = self.sender()
-    if action.objectName():
-      app_settings().setValue(action.objectName(), action.isChecked())
-    self.checkable_actions[action](action.isChecked())
+    sender = self.sender()
+    if isinstance(sender, QAction):
+      action: QAction = sender
+      if action.objectName():
+        app_settings().setValue(action.objectName(), action.isChecked())
+      self.checkable_actions[action](action.isChecked())
 
   def create_menu_bar(self):
 
@@ -181,8 +183,8 @@ class MainWindow(QMainWindow):
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
-      A("Simulate disconnection", board.debug_simulate_disconnection, m)
-      A("Simulate command error", board.debug_simulate_command_error, m)
+      A("Simulate disconnection", getattr(board, "debug_simulate_disconnection"), m)
+      A("Simulate command error", getattr(board, "board.debug_simulate_command_error"), m)
 
     m = self.menuBar().addMenu('Help')
     A("Visit Project Page", self.show_homepage, m, icon="globe")
@@ -195,7 +197,7 @@ class MainWindow(QMainWindow):
     tb.setIconSize(QSize(40, 40))
     tb.setMovable(False)
     tb.setFloatable(False)
-    self.addToolBar(Qt.TopToolBarArea, tb)
+    self.addToolBar(Qt.ToolBarArea.TopToolBarArea, tb)
 
     self.but_position_on = QToolButton()
     self.but_position_on.setToolTip("Current Position")
@@ -330,6 +332,8 @@ class MainWindow(QMainWindow):
     self.show_position()
 
   def go_to_position(self):
+    if board.position is None:
+      return
     old_pos = board.position
     (new_pos, ok) = QInputDialog.getDouble(self, APP_NAME, "Target position:", value=old_pos, step=0.1)
     if ok and int(new_pos*10) != int(old_pos*10):

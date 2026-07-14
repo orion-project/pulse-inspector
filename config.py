@@ -1,26 +1,51 @@
 import re
 from configobj import ConfigObj
+from typing import overload, Any, Callable, Type
 
-def _is_int(v: str) -> bool:
-  return v.isdigit() or (v.startswith('-') and v[1:].isdigit())
+class ConfigSection:
+  _data: dict[str, Any]
 
-def _convert(val):
-  # Without config spec all values are strings by default
-  # Try to convert string values to appropriate types
-  if isinstance(val, str):
-    v = val.lower()
-    if v == "false":
-      return False
-    if v == "true":
-      return True
-    if _is_int(v):
-      return int(v)
-    try:
-      return float(v)
-    except ValueError:
-      pass
-  return val
+  def __init__(self, data: dict[str, Any]):
+    self._data = data
 
+  @overload
+  def get(self, type: Type[str], key: str, default: str|None) -> str: ...
+
+  @overload
+  def get(self, type: Type[bool], key: str, default: bool|None) -> bool: ...
+
+  @overload
+  def get(self, type: Type[int], key: str, default: int|None) -> int: ...
+
+  @overload
+  def get(self, type: Type[float], key: str, default: float|None) -> float: ...
+
+  @overload
+  def get(self, type: Type[list], key: str, default: list|None) -> list: ...
+
+  def get(self, type: Callable[[str], Any], key: str, default: Any) -> Any:
+    # Without config spec all values are strings by default
+    # Try to convert string values to appropriate types
+    val = self._data.get(key)
+    if val is None:
+      if default is None:
+        raise KeyError(f"Value '{key}' not found in config")
+      return default
+
+    if type is bool:
+      v = val.lower()
+      if v == "false":
+        return False
+      if v == "true":
+        return True
+      raise ValueError(f"Value '{key}' is not a boolean")
+
+    if type is list:
+      if isinstance(val, list):
+        return val
+      raise ValueError(f"Value '{key}' is not a list")
+
+    return type(val)
 
 class Command:
   name: str
@@ -28,74 +53,71 @@ class Command:
   timeout: float
   log_answer: bool
 
-  def __init__(self, name, specs):
+  def __init__(self, name, specs: dict[str, Any]):
     spec = specs.get(name)
     if not spec:
       raise KeyError(f"Command not found: {name}")
 
+    spec = ConfigSection(spec)
+
     self.name = name
-    self.serial_name = spec.get("serial_name")
-    self.log_answer = _convert(spec.get("log_answer", True))
+    self.serial_name = spec.get(str, "serial_name", None)
+    self.log_answer = spec.get(bool, "log_answer", True)
+    self.timeout = spec.get(float, "timeout", 0)
 
-    timeout = spec.get("timeout")
-    if not timeout:
-      timeout = specs.get("timeout", 1)
-    self.timeout = _convert(timeout)
+    # If the command doesn't provide its own timeout
+    # use the global default timeout given for all commands
+    if self.timeout <= 0:
+      spec = ConfigSection(specs)
+      self.timeout = spec.get(float, "timeout", None)
 
-def _parse_range(s: str) -> list:
+class ValueRange:
+  min: float|int
+  max: float|int
+
+  def __init__(self, min: float|int, max: float|int):
+    self.min = min
+    self.max = max
+
+def _parse_range(s: str) -> ValueRange|None:
   r = [r.strip() for r in s.split("-")]
   if len(r) != 2:
     return None
-  if _is_int(r[0]) and _is_int(r[1]):
+  try:
     min = int(r[0])
     max = int(r[1])
-  else:
+  except ValueError:
     try:
       min = float(r[0])
-    except ValueError:
-      print(f"Invalid range: {s}")
-      return None
-    try:
       max = float(r[1])
     except ValueError:
       print(f"Invalid range: {s}")
       return None
   if max < min:
     min, max = max, min
-  return (min, max)
+  return ValueRange(min, max)
 
 class Parameter:
   name: str
   title: str
   options: list = []
-  range: tuple = None
+  range: ValueRange|None = None
   precision = 2
-  step = None
+  step = 0
 
-  def __init__(self, name, specs):
+  def __init__(self, name, specs: dict[str, Any]):
     spec = specs.get(name)
     if not spec:
       raise KeyError(f"Parameter not found: {name}")
 
+    spec = ConfigSection(spec)
+
     self.name = name
-
-    self.title = spec.get("title")
-    if not self.title:
-      self.title = name
-
-    opts = spec.get("options")
-    if opts and isinstance(opts, list):
-      self.options = opts
-
-    self.range = _parse_range(spec.get("range", ""))
-
-    precision = spec.get("precision")
-    if precision is not None:
-      self.precision = _convert(precision)
-
-    step = spec.get("step")
-    if step:
-      self.step = _convert(step)
+    self.title = spec.get(str, "title", name)
+    self.options = spec.get(list, "options", [])
+    self.range = _parse_range(spec.get(str, "range", ""))
+    self.precision = spec.get(int, "precision", 2)
+    self.step = spec.get(int, "step", 0)
 
 class ScanRange:
   name: str
@@ -111,12 +133,12 @@ class ScanRange:
 
 class Config:
   _data: ConfigObj
-  _file_name = None
-  _cache = {}
+  _file_name: str = ''
+  _cache: dict[str, Any] = {}
 
-  def __init__(self, src):
+  def __init__(self, src: dict|str):
     if isinstance(src, dict):
-      self._data = src
+      self._data = ConfigObj(src)
     else:
       self._file_name = src
       self._data = ConfigObj(src)
@@ -126,8 +148,8 @@ class Config:
     if name in self._cache:
       return self._cache[key]
     specs = self._data.get("commands")
-    if not specs:
-      raise KeyError(f"Command not found: {name}")
+    if not isinstance(specs, dict):
+      raise ValueError("The [commands] section not found config or has bad format")
     cmd = Command(name, specs)
     self._cache[key] = cmd
     return cmd
@@ -137,8 +159,8 @@ class Config:
     if key in self._cache:
       return self._cache[key]
     specs = self._data.get("parameters")
-    if not specs:
-      raise KeyError(f"Parameter not found: {name}")
+    if not isinstance(specs, dict):
+      raise ValueError("The [parameters] section not found config or has bad format")
     param = Parameter(name, specs)
     self._cache[key] = param
     return param
@@ -149,7 +171,22 @@ class Config:
       raise KeyError(f"Parameters not found")
     return [*specs]
 
-  def value(self, path: str, default = None):
+  @overload
+  def value(self, type: Type[str], path: str, default: str|None) -> str: ...
+
+  @overload
+  def value(self, type: Type[bool], path: str, default: bool|None) -> bool: ...
+
+  @overload
+  def value(self, type: Type[int], path: str, default: int|None) -> int: ...
+
+  @overload
+  def value(self, type: Type[float], path: str, default: float|None) -> float: ...
+
+  @overload
+  def value(self, type: Type[list], path: str, default: list|None) -> list: ...
+
+  def value(self, type: Callable[[str], Any], path: str, default = None) -> Any:
     if path in self._cache:
       return self._cache[path]
     val = self._data
@@ -159,13 +196,15 @@ class Config:
           return default
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
-    val = _convert(val)
+    # Convert to desired type
+    tmp = ConfigSection({'tmp', val})
+    val = tmp.get(type, 'tmp', None)
     self._cache[path] = val
     return val
 
   def set_value(self, path: str, value):
     keys = path.split("/")
-    val = self._data
+    val: Any = self._data
     for key in keys[:-1]:
       if key not in val:
         raise KeyError(f"Configuration path not found: {path}")
@@ -178,23 +217,29 @@ class Config:
       raise Exception("File name is not specified")
     self._data.write()
 
-  def error_text(self, err):
+  def error_text(self, err) -> str:
+    msg = ''
     code = err.split(" ")[-1]
-    msg = self._data.get("errors", {}).get(code)
+    errors = self._data.get("errors", {})
+    if isinstance(errors, dict):
+      msg = errors.get(code)
     if not msg:
       msg = f"error={code}"
     return msg
 
   def scan_ranges(self) -> list[ScanRange]:
     key = "operations/scan_ranges"
-    items = self.value(key, [])
-    if isinstance(items, str): # Single range
-      return [ScanRange(items)]
-    if isinstance(items, list): # Several ranges
+    # Several ranges
+    items = self.value(list, key, [])
+    if len(items) > 0:
       res = []
       for item in items:
         if not isinstance(item, str):
           raise TypeError(f"{key} has bad type, string or string-list expected")
         res.append(ScanRange(item))
       return res
+    # Single range
+    item = self.value(str, key, "")
+    if item:
+      return [ScanRange(item)]
     raise TypeError(f"{key} has bad type, string or string-list expected")

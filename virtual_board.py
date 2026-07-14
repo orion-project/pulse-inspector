@@ -2,6 +2,7 @@ import logging
 import time
 
 from board import Board
+from config import Config
 from consts import CMD
 from utils import make_sample_profile
 
@@ -13,7 +14,7 @@ MOVE_SPEED = 100 # mkm/s
 MOVE_DELTA = ms(10)
 JOG_SPEED = 100 # mkm/s
 JOG_DELTA = ms(100)
-SCAN_RANGE = 20
+SCAN_RANGE = 20.0
 POS_EPSILON = 0.1 # mkm
 
 class VirtualBoard(Board):
@@ -32,7 +33,7 @@ class VirtualBoard(Board):
   }
 
   def __init__(self):
-    super().__init__(log, \
+    super().__init__(log, Config(\
       {
         "commands": {
           CMD.connect: { "timeout": 0.5 },
@@ -75,7 +76,7 @@ class VirtualBoard(Board):
             "options": ["8", "16", "32", "64"],
           }
         }
-      }
+      })
     )
 
   def port(self):
@@ -123,7 +124,7 @@ class VirtualBoard(Board):
 
           self._cmd = next_cmd
           log.info(f"begin:{self._cmd}")
-          cmd = self.config.cmd_spec(self._cmd)
+          cmd = self.config.cmd_spec(str(self._cmd))
           self._prepare_command()
           self.on_command_beg.emit(self._cmd)
           self._cmd_start = time.perf_counter()

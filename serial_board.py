@@ -3,22 +3,23 @@ import logging
 import serial
 import serial.tools.list_ports
 
+from config import Config
 from board import Board
 from consts import CMD
 
 log = logging.getLogger(__name__)
 
 class SerialBoard(Board):
-  _uart: serial.Serial = None
+  _uart: serial.Serial|None = None
   _profile_x = []
   _profile_y = []
   _cmd_log_answer = True
 
   def __init__(self):
-    super().__init__(log, "board_config.ini")
+    super().__init__(log, Config("board_config.ini"))
 
-  def port(self):
-    port = self.config.value("connection/port")
+  def port(self) -> str:
+    port = self.config.value(str, "connection/port", '')
     if not port:
       ports = serial.tools.list_ports.comports()
       for p in ports:
@@ -27,11 +28,14 @@ class SerialBoard(Board):
     return port
 
   def loop(self):
-    answer_ok = self.config.value("commands/answer_ok")
-    answer_error = self.config.value("commands/answer_error")
+    answer_ok = self.config.value(str, "commands/answer_ok", None)
+    answer_error = self.config.value(str, "commands/answer_error", None)
 
     while True:
       time.sleep(0.001)
+
+      if not self._uart:
+        continue
 
       self._lock.acquire()
       next_cmd = self._next_cmd
@@ -103,12 +107,12 @@ class SerialBoard(Board):
     if self._uart:
       self._disconnect()
     port = self.port()
-    baudrate = self.config.value("connection/baudrate")
-    timeout = self.config.value("connection/timeout")
+    baudrate = self.config.value(int, "connection/baudrate", None)
+    timeout = self.config.value(float, "connection/timeout", None)
     self._uart = serial.Serial(port, baudrate=baudrate, timeout=timeout)
     # Arduino boards reset when a serial connection is opened
     # Delay after connection allows it to complete its bootloader and initialization sequence
-    time.sleep(self.config.value("connection/reset_time", 2))
+    time.sleep(self.config.value(float, "connection/reset_time", 2))
     self._uart.reset_input_buffer()
     self._uart.reset_output_buffer()
     log.info(f"Connected to {port} at {baudrate}")
@@ -204,7 +208,8 @@ class SerialBoard(Board):
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
-    self._uart.close()
+    if self._uart:
+      self._uart.close()
 
   def debug_simulate_command_error(self):
     if not self.connected:

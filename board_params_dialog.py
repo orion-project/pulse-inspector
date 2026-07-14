@@ -24,12 +24,12 @@ class BoardParamsDialog(QDialog):
 
     self.setWindowTitle("Firmware Parameters")
 
-    self.layout = QVBoxLayout(self)
-    self.layout.setSpacing(2)
+    layout = QVBoxLayout(self)
+    layout.setSpacing(2)
 
     for code in board.config.param_codes():
       spec = board.config.param_spec(code)
-      self._create_param_editor(spec)
+      self._create_param_editor(layout, spec)
 
     buttons = QDialogButtonBox(
       QDialogButtonBox.StandardButton.Ok |
@@ -37,13 +37,15 @@ class BoardParamsDialog(QDialog):
     )
     buttons.accepted.connect(self.accept)
     buttons.rejected.connect(self.reject)
-    self.layout.addSpacing(12)
-    self.layout.addStretch()
-    self.layout.addWidget(buttons)
+
+    layout.addSpacing(12)
+    layout.addStretch()
+    layout.addWidget(buttons)
+    self.setLayout(layout)
 
     self._populate()
 
-  def _create_param_editor(self, spec: Parameter):
+  def _create_param_editor(self, layout: QVBoxLayout, spec: Parameter):
     make_label = True
     warn_label = QLabel()
     warn_label.setVisible(False)
@@ -61,17 +63,19 @@ class BoardParamsDialog(QDialog):
         for opt in spec.options:
           editor.addItem(opt)
     elif spec.range:
-      if isinstance(spec.range[0], float):
+      if isinstance(spec.range.min, float) and isinstance(spec.range.max, float):
         editor = QDoubleSpinBox()
         self._editors[spec.name] = (EDITOR.float, editor, warn_label)
         editor.setDecimals(spec.precision)
-      elif isinstance(spec.range[0], int):
+        editor.setMinimum(spec.range.min)
+        editor.setMaximum(spec.range.max)
+      elif isinstance(spec.range.min, int) and isinstance(spec.range.max, int):
         editor = QSpinBox()
+        editor.setMinimum(spec.range.min)
+        editor.setMaximum(spec.range.max)
         self._editors[spec.name] = (EDITOR.int, editor, warn_label)
       else:
         raise Exception(f"Invalid range definition for parameter {spec.title}")
-      editor.setMinimum(spec.range[0])
-      editor.setMaximum(spec.range[1])
       if spec.step:
         editor.setSingleStep(spec.step)
     else:
@@ -81,10 +85,10 @@ class BoardParamsDialog(QDialog):
     if make_label:
       label = QLabel(spec.title)
       label.setWordWrap(True)
-      self.layout.addWidget(label)
-    self.layout.addWidget(editor)
-    self.layout.addWidget(warn_label)
-    self.layout.addSpacing(10)
+      layout.addWidget(label)
+    layout.addWidget(editor)
+    layout.addWidget(warn_label)
+    layout.addSpacing(10)
 
   def _populate(self):
     warnings = {}
@@ -103,14 +107,14 @@ class BoardParamsDialog(QDialog):
         elif kind == EDITOR.int:
           int_val = int(val)
           spec = board.config.param_spec(name)
-          if int_val < spec.range[0] or int_val > spec.range[1]:
+          if spec.range and (int_val < spec.range.min or int_val > spec.range.max):
             warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
             continue
           editor.setValue(int_val)
         elif kind == EDITOR.float:
           float_val = float(val)
           spec = board.config.param_spec(name)
-          if float_val < spec.range[0] or float_val > spec.range[1]:
+          if spec.range and (float_val < spec.range.min or float_val > spec.range.max):
             warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
             continue
           editor.setValue(float_val)
@@ -136,7 +140,7 @@ class BoardParamsDialog(QDialog):
       warn_label.setText(warnings[name])
       warn_label.setVisible(True)
 
-  def run(self) -> dict:
+  def run(self) -> dict|None:
     if self.exec() != QDialog.DialogCode.Accepted:
       return None
     changes = {}
