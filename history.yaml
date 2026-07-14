@@ -1,4 +1,9 @@
 history:
+- version: 0.0.5
+  date:
+  changes:
+  - text:
+
 - version: 0.0.4
   date: 2026-01-28
   changes:

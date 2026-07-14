@@ -183,8 +183,8 @@ class MainWindow(QMainWindow):
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
-      A("Simulate disconnection", getattr(board, "debug_simulate_disconnection"), m)
-      A("Simulate command error", getattr(board, "board.debug_simulate_command_error"), m)
+      A("Simulate disconnection", board.debug_simulate_disconnection, m)
+      A("Simulate command error", board.debug_simulate_command_error, m)
 
     m = self.menuBar().addMenu('Help')
     A("Visit Project Page", self.show_homepage, m, icon="globe")

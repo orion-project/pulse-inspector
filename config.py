@@ -47,6 +47,9 @@ class ConfigSection:
 
     return type(val)
 
+  def has(self, key: str) -> bool:
+    return key in self._data
+
 class Command:
   name: str
   serial_name: str
@@ -61,15 +64,16 @@ class Command:
     spec = ConfigSection(spec)
 
     self.name = name
-    self.serial_name = spec.get(str, "serial_name", None)
+    self.serial_name = spec.get(str, "serial_name", name)
     self.log_answer = spec.get(bool, "log_answer", True)
-    self.timeout = spec.get(float, "timeout", 0)
 
-    # If the command doesn't provide its own timeout
-    # use the global default timeout given for all commands
-    if self.timeout <= 0:
-      spec = ConfigSection(specs)
+    if spec.has("timeout"):
       self.timeout = spec.get(float, "timeout", None)
+    else:
+      # If the command doesn't provide its own timeout
+      # use the global default timeout given for all commands
+      spec = ConfigSection(specs)
+      self.timeout = spec.get(float, "timeout", 1)
 
 class ValueRange:
   min: float|int
@@ -197,7 +201,7 @@ class Config:
         raise KeyError(f"Configuration path not found: {path}")
       val = val[key]
     # Convert to desired type
-    tmp = ConfigSection({'tmp', val})
+    tmp = ConfigSection({'tmp': val})
     val = tmp.get(type, 'tmp', None)
     self._cache[path] = val
     return val

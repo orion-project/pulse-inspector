@@ -2,6 +2,7 @@ import time
 import logging
 import serial
 import serial.tools.list_ports
+from typing import override
 
 from config import Config
 from board import Board
@@ -18,6 +19,7 @@ class SerialBoard(Board):
   def __init__(self):
     super().__init__(log, Config("board_config.ini"))
 
+  @override
   def port(self) -> str:
     port = self.config.value(str, "connection/port", '')
     if not port:
@@ -27,15 +29,13 @@ class SerialBoard(Board):
         break
     return port
 
+  @override
   def loop(self):
     answer_ok = self.config.value(str, "commands/answer_ok", None)
     answer_error = self.config.value(str, "commands/answer_error", None)
 
     while True:
       time.sleep(0.001)
-
-      if not self._uart:
-        continue
 
       self._lock.acquire()
       next_cmd = self._next_cmd
@@ -54,19 +54,20 @@ class SerialBoard(Board):
             elapsed = time.perf_counter() - self._cmd_start
             if elapsed >= self._cmd_timeout:
               raise TimeoutError("Command timeout")
-            ans = self._uart.readline().decode('utf-8').strip()
-            if ans:
-              if ans.startswith(answer_ok):
-                if self._cmd_log_answer:
+            if self._uart:
+              ans = self._uart.readline().decode('utf-8').strip()
+              if ans:
+                if ans.startswith(answer_ok):
+                  if self._cmd_log_answer:
+                    log.debug(f"receive:{ans}")
+                  if self._command_done(ans):
+                    self._end_command(None)
+                elif ans.startswith(answer_error):
                   log.debug(f"receive:{ans}")
-                if self._command_done(ans):
-                  self._end_command(None)
-              elif ans.startswith(answer_error):
-                log.debug(f"receive:{ans}")
-                self._end_command(self.config.error_text(ans))
-              else: # Some debug output from the board
-                if self._cmd_log_answer:
-                  log.debug(f"receive:{ans}")
+                  self._end_command(self.config.error_text(ans))
+                else: # Some debug output from the board
+                  if self._cmd_log_answer:
+                    log.debug(f"receive:{ans}")
             continue
 
         if next_cmd:
@@ -85,7 +86,7 @@ class SerialBoard(Board):
             self.on_command_beg.emit(self._cmd)
             self._disconnect()
             self._end_command(None)
-          else:
+          elif self._uart:
             cmd = self.config.cmd_spec(self._cmd.value)
             if not cmd.serial_name:
               raise Exception(f"Command serial name is empty")
@@ -205,12 +206,14 @@ class SerialBoard(Board):
         raise Exception("Unexpected command result")
     return True
 
+  @override
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
     if self._uart:
       self._uart.close()
 
+  @override
   def debug_simulate_command_error(self):
     if not self.connected:
       return

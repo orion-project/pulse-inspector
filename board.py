@@ -1,5 +1,6 @@
 import logging
 import threading
+from abc import ABCMeta, abstractmethod
 from PySide6.QtCore import QObject, Signal
 
 from config import Config
@@ -7,7 +8,11 @@ from consts import CMD
 
 board = None
 
-class Board(QObject):
+# To be able to use @abstractmethod in Qt-based class
+class QObjectAbstractMeta(ABCMeta, type(QObject)):
+  pass
+
+class Board(QObject, metaclass=QObjectAbstractMeta):
   on_command_beg = Signal(CMD)
   on_command_end = Signal(CMD, str)
   on_data_received = Signal(list, list)
@@ -51,13 +56,13 @@ class Board(QObject):
     global board
     board = self
 
+  @abstractmethod
   def loop(self):
-    # to be overriden
-    pass
+    raise NotImplementedError()
 
+  @abstractmethod
   def port(self) -> str:
-    # to be overriden
-    return ''
+    raise NotImplementedError()
 
   def _disable_all(self):
     self.can_connect = False
@@ -322,3 +327,8 @@ class Board(QObject):
     self._microstep_jog = on
     self.log.info(f"use_microstep_jog:{on}")
 
+  def debug_simulate_disconnection(self):
+    pass
+
+  def debug_simulate_command_error(self):
+    pass
