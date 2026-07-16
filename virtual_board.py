@@ -55,7 +55,7 @@ class VirtualBoard(Board):
         "parameters": {
           "p1": {
             "title": "Simple parameter with very long title " +
-              "(can hold any value, it is up to the formware how to parse it)"
+              "(can hold any value, it is up to the firmware how to parse it)"
           },
           "p2": {
             "title": "Integer parameter",

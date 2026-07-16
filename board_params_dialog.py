@@ -2,7 +2,7 @@ import logging
 from enum import Enum
 from PySide6.QtWidgets import (
   QDialog, QDialogButtonBox, QVBoxLayout, QLabel, QSpinBox, QCheckBox,
-  QComboBox, QLineEdit, QDoubleSpinBox)
+  QComboBox, QLineEdit, QDoubleSpinBox, QWidget)
 
 from board import board
 from config import Parameter
@@ -17,7 +17,7 @@ class EDITOR(Enum):
   opts = 4
 
 class BoardParamsDialog(QDialog):
-  _editors = {}
+  _editors: dict[str, tuple[EDITOR, QWidget, QLabel]] = {}
 
   def __init__(self, parent=None):
     super().__init__(parent)
@@ -69,15 +69,17 @@ class BoardParamsDialog(QDialog):
         editor.setDecimals(spec.precision)
         editor.setMinimum(spec.range.min)
         editor.setMaximum(spec.range.max)
+        if spec.range.step:
+          editor.setSingleStep(spec.range.step)
       elif isinstance(spec.range.min, int) and isinstance(spec.range.max, int):
         editor = QSpinBox()
         editor.setMinimum(spec.range.min)
         editor.setMaximum(spec.range.max)
+        if spec.range.step:
+          editor.setSingleStep(int(spec.range.step))
         self._editors[spec.name] = (EDITOR.int, editor, warn_label)
       else:
         raise Exception(f"Invalid range definition for parameter {spec.title}")
-      if spec.step:
-        editor.setSingleStep(spec.step)
     else:
       editor = QLineEdit()
       self._editors[spec.name] = (EDITOR.str, editor, warn_label)
@@ -91,7 +93,7 @@ class BoardParamsDialog(QDialog):
     layout.addSpacing(10)
 
   def _populate(self):
-    warnings = {}
+    warnings: dict[str, str] = {}
     for name in self._editors:
       (kind, editor, _) = self._editors[name]
       val = board.params.get(name)
@@ -102,36 +104,38 @@ class BoardParamsDialog(QDialog):
         warnings[name] = f"Application error: all values expected to be string, but got {type(val)}"
         continue
       try:
-        if kind == EDITOR.str:
-          editor.setText(val)
-        elif kind == EDITOR.int:
-          int_val = int(val)
-          spec = board.config.param_spec(name)
-          if spec.range and (int_val < spec.range.min or int_val > spec.range.max):
-            warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
-            continue
-          editor.setValue(int_val)
-        elif kind == EDITOR.float:
-          float_val = float(val)
-          spec = board.config.param_spec(name)
-          if spec.range and (float_val < spec.range.min or float_val > spec.range.max):
-            warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
-            continue
-          editor.setValue(float_val)
-        elif kind == EDITOR.bool:
-          if val != "0" and val != "1":
-            warnings[name] = f"Protocol mismatch: firmware returned a value that is not listed in the options ({val})"
-            continue
-          editor.setChecked(val == "1")
-        elif kind == EDITOR.opts:
-          spec = board.config.param_spec(name)
-          if not val in spec.options:
-            warnings[name] = f"Protocol mismatch: firmware returned a value that is not listed in the options ({val})"
-            continue
-          editor.setCurrentText(val)
-        else:
-          warnings[name] = "Application error: not implemented"
+        match kind, editor:
+          case EDITOR.str, QLineEdit():
+            editor.setText(val)
+          case EDITOR.int, QSpinBox():
+            int_val = int(val)
+            spec = board.config.param_spec(name)
+            if spec.range and (int_val < spec.range.min or int_val > spec.range.max):
+              warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
+              continue
+            editor.setValue(int_val)
+          case EDITOR.float, QDoubleSpinBox():
+            float_val = float(val)
+            spec = board.config.param_spec(name)
+            if spec.range and (float_val < spec.range.min or float_val > spec.range.max):
+              warnings[name] = f"Protocol mismatch: firmware returned a value that is out of range ({val})"
+              continue
+            editor.setValue(float_val)
+          case EDITOR.bool, QCheckBox():
+            if val != "0" and val != "1":
+              warnings[name] = f"Protocol mismatch: firmware returned a value that is not listed in the options ({val})"
+              continue
+            editor.setChecked(val == "1")
+          case EDITOR.opts, QComboBox():
+            spec = board.config.param_spec(name)
+            if not val in spec.options:
+              warnings[name] = f"Protocol mismatch: firmware returned a value that is not listed in the options ({val})"
+              continue
+            editor.setCurrentText(val)
+          case _:
+            warnings[name] = "Application error: not implemented"
       except ValueError:
+        log.warning(f"bad value for type '{kind.name}': {name}='{val}'")
         warnings[name] = "Protocol mismatch: invalid value format"
         continue
     for name in warnings:
@@ -140,26 +144,27 @@ class BoardParamsDialog(QDialog):
       warn_label.setText(warnings[name])
       warn_label.setVisible(True)
 
-  def run(self) -> dict|None:
+  def run(self) -> dict[str, str]:
     if self.exec() != QDialog.DialogCode.Accepted:
-      return None
-    changes = {}
+      return {}
+    changes: dict[str, str] = {}
     for name in self._editors:
       (kind, editor, _) = self._editors[name]
       if not editor.isEnabled():
         continue
       val = None
-      if kind == EDITOR.str:
-        val = editor.text().strip()
-      elif kind == EDITOR.int:
-        val = str(editor.value())
-      elif kind == EDITOR.float:
-        spec = board.config.param_spec(name)
-        val = f"{editor.value():.{spec.precision}f}"
-      elif kind == EDITOR.bool:
-        val = "1" if editor.isChecked() else "0"
-      elif kind == EDITOR.opts:
-        val = editor.currentText()
+      match kind, editor:
+        case EDITOR.str, QLineEdit():
+          val = editor.text().strip()
+        case EDITOR.int, QSpinBox():
+          val = str(editor.value())
+        case EDITOR.float, QDoubleSpinBox():
+          spec = board.config.param_spec(name)
+          val = f"{editor.value():.{spec.precision}f}"
+        case EDITOR.bool, QCheckBox():
+          val = "1" if editor.isChecked() else "0"
+        case EDITOR.opts, QComboBox():
+          val = editor.currentText()
       if val is None:
         continue
       if val == board.params[name]:

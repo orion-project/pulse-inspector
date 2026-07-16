@@ -16,8 +16,8 @@ class SerialBoard(Board):
   _profile_y = []
   _cmd_log_answer = True
 
-  def __init__(self):
-    super().__init__(log, Config("board_config.ini"))
+  def __init__(self, config_file: str):
+    super().__init__(log, Config(config_file))
 
   @override
   def port(self) -> str:
@@ -68,7 +68,7 @@ class SerialBoard(Board):
                 else: # Some debug output from the board
                   if self._cmd_log_answer:
                     log.debug(f"receive:{ans}")
-            continue
+              continue
 
         if next_cmd:
           self._lock.acquire()

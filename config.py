@@ -78,10 +78,12 @@ class Command:
 class ValueRange:
   min: float|int
   max: float|int
+  step: float|int
 
   def __init__(self, min: float|int, max: float|int):
     self.min = min
     self.max = max
+    self.step = 0
 
 def _parse_range(s: str) -> ValueRange|None:
   r = [r.strip() for r in s.split("-")]
@@ -107,7 +109,6 @@ class Parameter:
   options: list = []
   range: ValueRange|None = None
   precision = 2
-  step = 0
 
   def __init__(self, name, specs: dict[str, Any]):
     spec = specs.get(name)
@@ -119,9 +120,10 @@ class Parameter:
     self.name = name
     self.title = spec.get(str, "title", name)
     self.options = spec.get(list, "options", [])
-    self.range = _parse_range(spec.get(str, "range", ""))
     self.precision = spec.get(int, "precision", 2)
-    self.step = spec.get(int, "step", 0)
+    self.range = _parse_range(spec.get(str, "range", ""))
+    if self.range:
+      self.range.step = spec.get(float, "step", 0)
 
 class ScanRange:
   name: str

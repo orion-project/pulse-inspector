@@ -14,6 +14,7 @@ def main():
   parser = argparse.ArgumentParser(description=APP_NAME)
   parser.add_argument('--dev', action='store_true', help='Enable development mode')
   parser.add_argument('--virtual', action='store_true', help='Use virtual board')
+  parser.add_argument('--config', help='Board config file name')
   args = parser.parse_args()
 
   app = QApplication(sys.argv)
@@ -28,7 +29,10 @@ def main():
       VirtualBoard()
     else:
       from serial_board import SerialBoard
-      SerialBoard()
+      config_file: str = args.config
+      if not config_file:
+        config_file = "board_config.ini"
+      SerialBoard(config_file)
   except Exception as e:
     log.exception("Error board initialization")
     QMessageBox.critical(None, APP_NAME, f"Error board initialization: {e}")
