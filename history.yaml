@@ -1,8 +1,10 @@
 history:
 - version: 0.0.5
-  date:
+  date: 2026-07-17
   changes:
-  - text:
+  - text: Can override default board config file with cmd arg --config
+  - text: 'Fix: only the first of changed parameter is stored on the board'
+  - text: 'Fix: emulator sketch returns OK without new-line between loops of continuous scan'
 
 - version: 0.0.4
   date: 2026-01-28

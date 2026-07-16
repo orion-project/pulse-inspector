@@ -86,23 +86,28 @@ class SerialBoard(Board):
             self.on_command_beg.emit(self._cmd)
             self._disconnect()
             self._end_command(None)
-          elif self._uart:
-            cmd = self.config.cmd_spec(self._cmd.value)
-            if not cmd.serial_name:
-              raise Exception(f"Command serial name is empty")
-            cmd_args = self._prepare_command()
-            serial_cmd = f"{cmd.serial_name} {cmd_args}".strip()
-            self.on_command_beg.emit(self._cmd)
-            self._cmd_start = time.perf_counter()
-            self._cmd_timeout = cmd.timeout
-            self._cmd_log_answer = cmd.log_answer
-            log.debug(f"send:{serial_cmd}")
-            self._uart.write(serial_cmd.encode())
-            self._uart.flush()
+          else:
+            self._run_command(True)
 
       except Exception as e:
         log.exception(f"error:{self._cmd}")
         self._end_command(str(e))
+
+  def _run_command(self, emit_beg_signal: bool):
+    if self._uart and self._cmd:
+      cmd = self.config.cmd_spec(self._cmd.value)
+      if not cmd.serial_name:
+        raise Exception(f"Command serial name is empty")
+      cmd_args = self._prepare_command()
+      serial_cmd = f"{cmd.serial_name} {cmd_args}".strip()
+      if emit_beg_signal:
+        self.on_command_beg.emit(self._cmd)
+      self._cmd_start = time.perf_counter()
+      self._cmd_timeout = cmd.timeout
+      self._cmd_log_answer = cmd.log_answer
+      log.debug(f"send:{serial_cmd}")
+      self._uart.write(serial_cmd.encode())
+      self._uart.flush()
 
   def _connect(self):
     if self._uart:
@@ -140,9 +145,9 @@ class SerialBoard(Board):
 
     if self._cmd == CMD.param:
       if self._cmd_args.get("store"):
-        params = self._cmd_args["params"]
-        name = [*params][0]
-        value = params[name]
+        params: list[tuple[str, str]] = self._cmd_args["params"]
+        name, value = params[0]
+        log.info(f"store_param:{name}={value}")
         return f"{name} {value}"
 
     if self._cmd == CMD.scan or self._cmd == CMD.scans:
@@ -164,6 +169,7 @@ class SerialBoard(Board):
       res = ans.split(" ")
       if len(res) == 1:
         # End of continuous scan loop, `OK`
+        #log.debug(f"data_received:continuous:len={len(self._profile_x)}")
         self.on_data_received.emit(self._profile_x, self._profile_y)
         self._profile_x = []
         self._profile_y = []
@@ -172,6 +178,7 @@ class SerialBoard(Board):
         # End of single scan loop, e.g. `OK 100`
         self.position = float(res[-1])
         self.on_stage_moved.emit()
+        #log.debug(f"data_received:single:len={len(self._profile_x)}")
         self.on_data_received.emit(self._profile_x, self._profile_y)
         return True
       if len(res) == 3:
@@ -187,21 +194,23 @@ class SerialBoard(Board):
     if self._cmd == CMD.param:
       if self._cmd_args.get("store"):
         # Store params
-        params = self._cmd_args["params"]
-        name = [*params][0]
-        value = params[name]
+        params: list[tuple[str, str]] = self._cmd_args["params"]
+        (name, value) = params[0]
         log.info(f"param_stored:{name}={value}")
-        del params[name]
-        self.on_param_stored.emit(len(params) > 0)
-        return True
+        params = params[1:]
+        if not params:
+          return True
+        self._cmd_args["params"] = params
+        self._run_command(False)
+        return False
       else:
         # Receive params
         res = ans.split(" ")
         if len(res) == 1:
-          self.on_params_received.emit()
           return True
         if len(res) == 3:
           self.params[res[1]] = res[2]
+          self._cmd_start = time.perf_counter()
           return False
         raise Exception("Unexpected command result")
     return True

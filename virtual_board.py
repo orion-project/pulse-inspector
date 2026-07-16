@@ -252,14 +252,15 @@ class VirtualBoard(Board):
     if self._cmd == CMD.param:
       if self._cmd_args.get("store"):
         # Store params
-        params = self._cmd_args["params"]
-        name = [*params][0]
-        value = params[name]
+        params: list[tuple[str, str]] = self._cmd_args["params"]
+        (name, value) = params[0]
         self._stored_params[name] = value
         log.info(f"param_stored:{name}={value}")
-        del params[name]
-        self.on_param_stored.emit(len(params) > 0)
-        return True
+        params = params[1:]
+        if not params:
+          return True
+        self._cmd_args["params"] = params
+        return False
       else:
         # Receive params
         names = [*self._stored_params]
@@ -268,7 +269,6 @@ class VirtualBoard(Board):
         self._params_received += 1
         log.debug(f"param_received:{self._params_received}/{len(names)}:{name}={self.params[name]}")
         if self._params_received == len(names):
-          self.on_params_received.emit()
           return True
         self._cmd_start = time.perf_counter()
         return False

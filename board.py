@@ -2,6 +2,7 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from PySide6.QtCore import QObject, Signal
+from typing import Any
 
 from config import Config
 from consts import CMD
@@ -16,8 +17,6 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
   on_command_beg = Signal(CMD)
   on_command_end = Signal(CMD, str)
   on_data_received = Signal(list, list)
-  on_params_received = Signal()
-  on_param_stored = Signal(bool)
   on_stage_moved = Signal()
 
   _cmd: CMD|None = None
@@ -25,7 +24,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
   _cancel_cmd = False
   _cmd_start = 0
   _cmd_timeout = 0
-  _cmd_args: dict = {}
+  _cmd_args: dict[str, Any] = {}
   _scan_range = None
   _microstep_jog = False
 
@@ -251,12 +250,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
     self.can_move = self.homed
     self.can_jog = True
 
-  def store_params(self, params: dict):
-    self.log.info(f"changes:{params}({len(params)})")
-    self._cmd_args = {"store": True, "params": params}
-    self.store_next_param()
-
-  def store_next_param(self):
+  def store_params(self, params: dict[str, str]):
     self._lock.acquire()
     try:
       if not self.can_home:
@@ -264,6 +258,8 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
         return
       self._disable_all()
       self._next_cmd = CMD.param
+      self._cmd_args = {"store": True, "params": list(params.items())}
+      self.log.info(f"changes:{self._cmd_args["params"]}({len(params)})")
       self.can_connect = True
       self.can_stop = True
     finally:
@@ -295,9 +291,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
     self._cmd_start = 0
     self._cmd_timeout = 0
     # Don't clear args at any command end
-    # There can be sequential commands using the same args (e.g. params storing)
-    # Args should be initialized before a command whch is going to use them
-    # Remaining commands do not care about args
+    # `on_command_end` handler could be interested in what exactly has been ended
     #self._cmd_args = {}
 
   def get_cmd_run_text(self, cmd: CMD) -> str:
@@ -326,6 +320,9 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
   def use_microstep_jog(self, on):
     self._microstep_jog = on
     self.log.info(f"use_microstep_jog:{on}")
+
+  def cmd_args_params_receive(self):
+    return not "store" in self._cmd_args
 
   def debug_simulate_disconnection(self):
     pass
