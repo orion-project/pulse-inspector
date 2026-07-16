@@ -1,7 +1,9 @@
 import logging
 import time
+from typing import override
 
 from board import Board
+from config import Config
 from consts import CMD
 from utils import make_sample_profile
 
@@ -13,7 +15,7 @@ MOVE_SPEED = 100 # mkm/s
 MOVE_DELTA = ms(10)
 JOG_SPEED = 100 # mkm/s
 JOG_DELTA = ms(100)
-SCAN_RANGE = 20
+SCAN_RANGE = 20.0
 POS_EPSILON = 0.1 # mkm
 
 class VirtualBoard(Board):
@@ -32,18 +34,18 @@ class VirtualBoard(Board):
   }
 
   def __init__(self):
-    super().__init__(log, \
+    super().__init__(log, Config(\
       {
         "commands": {
-          CMD.connect: { "timeout": 0.5 },
-          CMD.disconnect: { "timeout": 0.5 },
-          CMD.home: { "timeout": 2 },
-          CMD.stop: { "timeout": 0.5 },
-          CMD.move: { "timeout": -1 }, # use MOVE_SPEED
-          CMD.jog: { "timeout": -1 }, # use JOG_SPEED
-          CMD.scan: { "timeout": 0.05 }, # between points
-          CMD.scans: { "timeout": 0.25 },
-          CMD.param: { "timeout": 0.10 },
+          CMD.connect.value: { "timeout": 0.5 },
+          CMD.disconnect.value: { "timeout": 0.5 },
+          CMD.home.value: { "timeout": 2 },
+          CMD.stop.value: { "timeout": 0.5 },
+          CMD.move.value: { "timeout": -1 }, # use MOVE_SPEED
+          CMD.jog.value: { "timeout": -1 }, # use JOG_SPEED
+          CMD.scan.value: { "timeout": 0.05 }, # between points
+          CMD.scans.value: { "timeout": 0.25 },
+          CMD.param.value: { "timeout": 0.10 },
         },
         "operations": {
           "jog_distance": 100,
@@ -53,7 +55,7 @@ class VirtualBoard(Board):
         "parameters": {
           "p1": {
             "title": "Simple parameter with very long title " +
-              "(can hold any value, it is up to the formware how to parse it)"
+              "(can hold any value, it is up to the firmware how to parse it)"
           },
           "p2": {
             "title": "Integer parameter",
@@ -75,12 +77,14 @@ class VirtualBoard(Board):
             "options": ["8", "16", "32", "64"],
           }
         }
-      }
+      })
     )
 
+  @override
   def port(self):
     return "VIRTUAL"
 
+  @override
   def loop(self):
     while True:
       time.sleep(0.001)
@@ -123,7 +127,7 @@ class VirtualBoard(Board):
 
           self._cmd = next_cmd
           log.info(f"begin:{self._cmd}")
-          cmd = self.config.cmd_spec(self._cmd)
+          cmd = self.config.cmd_spec(self._cmd.value)
           self._prepare_command()
           self.on_command_beg.emit(self._cmd)
           self._cmd_start = time.perf_counter()
@@ -248,14 +252,15 @@ class VirtualBoard(Board):
     if self._cmd == CMD.param:
       if self._cmd_args.get("store"):
         # Store params
-        params = self._cmd_args["params"]
-        name = [*params][0]
-        value = params[name]
+        params: list[tuple[str, str]] = self._cmd_args["params"]
+        (name, value) = params[0]
         self._stored_params[name] = value
         log.info(f"param_stored:{name}={value}")
-        del params[name]
-        self.on_param_stored.emit(len(params) > 0)
-        return True
+        params = params[1:]
+        if not params:
+          return True
+        self._cmd_args["params"] = params
+        return False
       else:
         # Receive params
         names = [*self._stored_params]
@@ -264,13 +269,13 @@ class VirtualBoard(Board):
         self._params_received += 1
         log.debug(f"param_received:{self._params_received}/{len(names)}:{name}={self.params[name]}")
         if self._params_received == len(names):
-          self.on_params_received.emit()
           return True
         self._cmd_start = time.perf_counter()
         return False
 
     return True
 
+  @override
   def debug_simulate_disconnection(self):
     if not self.connected:
       return
@@ -278,6 +283,7 @@ class VirtualBoard(Board):
     self._cmd_error = "Connection interrupted"
     self._cancel_cmd = True
 
+  @override
   def debug_simulate_command_error(self):
     if not self.connected:
       return

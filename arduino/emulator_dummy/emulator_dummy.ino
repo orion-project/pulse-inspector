@@ -363,7 +363,7 @@ bool sendScanPoint()
     {
       // Send addition OK to show the scan is finished
       // and we switch to scan in the opposite direction
-      Serial.print(ANS_OK);
+      Serial.println(ANS_OK);
 
       cmdScanArgs.sent = 0;
       cmdScanArgs.back = !cmdScanArgs.back;

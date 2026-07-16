@@ -13,7 +13,7 @@ from PySide6.QtCore import QStandardPaths
 logging.getLogger('matplotlib').level = logging.WARN
 logging.getLogger('matplotlib.font_manager').level = logging.WARN
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.figure import Figure
 
@@ -42,9 +42,9 @@ class Plot(FigureCanvas):
   _zoom_mode = "xy"
   _custom_lims_x = None
   _custom_lims_y = None
-  _pan_start: Point = None
+  _pan_start: Point|None = None
   _autosave = False
-  _autosave_dir = None
+  _autosave_dir = ''
   _shift_fit_bgnd = True
 
   def __init__(self, parent=None):
@@ -87,7 +87,8 @@ class Plot(FigureCanvas):
   def _replot(self):
     self.axes.clear()
 
-    if self._is_empty():
+    # type-checker can't understand that it's the same as _is_empty()
+    if self.x_data is None or self.y_data is None:
       return
 
     # For delay calculation we need to double the positions
@@ -351,7 +352,8 @@ class Plot(FigureCanvas):
     self._autosave = on
 
   def choose_autosave_dir(self):
-    data_dir = QFileDialog.getExistingDirectory(self, APP_NAME, self._autosave_dir, QFileDialog.ShowDirsOnly)
+    data_dir = QFileDialog.getExistingDirectory(
+      self, APP_NAME, self._autosave_dir, QFileDialog.Option.ShowDirsOnly)
     if data_dir:
       self._autosave_dir = data_dir
       app_settings().setValue("autosave_dir", data_dir)
@@ -375,7 +377,7 @@ class Plot(FigureCanvas):
     if not self._autosave or self._is_empty():
       return
     if not self._autosave_dir:
-      data_dir = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
+      data_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
       data_dir = os.path.join(data_dir, "autocorrelation-measurements")
       if not os.path.exists(data_dir):
         try:
@@ -400,7 +402,7 @@ class Plot(FigureCanvas):
     data_dir = s.value("data_dir")
 
     if not data_dir or not os.path.isdir(data_dir):
-      data_dir = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
+      data_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
 
     file_path, _ = QFileDialog.getSaveFileName(
       self,

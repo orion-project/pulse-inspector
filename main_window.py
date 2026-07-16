@@ -1,5 +1,5 @@
 import logging
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QFontMetrics
 from PySide6.QtWidgets import (
   QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
@@ -37,8 +37,6 @@ class MainWindow(QMainWindow):
     board.on_command_beg.connect(self.board_command_beg)
     board.on_command_end.connect(self.board_command_end)
     board.on_data_received.connect(self.plot.draw_graph)
-    board.on_params_received.connect(self.edit_board_params)
-    board.on_param_stored.connect(self.board_param_stored)
     board.on_stage_moved.connect(self.show_position)
 
     self.load_settings()
@@ -81,10 +79,12 @@ class MainWindow(QMainWindow):
     app_settings().setValue(self.sender().objectName(), action.objectName())
 
   def _checkable_action_triggered(self):
-    action = self.sender()
-    if action.objectName():
-      app_settings().setValue(action.objectName(), action.isChecked())
-    self.checkable_actions[action](action.isChecked())
+    sender = self.sender()
+    if isinstance(sender, QAction):
+      action: QAction = sender
+      if action.objectName():
+        app_settings().setValue(action.objectName(), action.isChecked())
+      self.checkable_actions[action](action.isChecked())
 
   def create_menu_bar(self):
 
@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
     tb.setIconSize(QSize(40, 40))
     tb.setMovable(False)
     tb.setFloatable(False)
-    self.addToolBar(Qt.TopToolBarArea, tb)
+    self.addToolBar(Qt.ToolBarArea.TopToolBarArea, tb)
 
     self.but_position_on = QToolButton()
     self.but_position_on.setToolTip("Current Position")
@@ -286,6 +286,8 @@ class MainWindow(QMainWindow):
     self.lab_run.hide()
     if cmd == CMD.connect or cmd == CMD.disconnect:
       self.show_connection()
+    elif cmd == CMD.param and board.cmd_args_params_receive():
+      QTimer.singleShot(0, self.edit_board_params)
     if err:
       QMessageBox.critical(self, APP_NAME, err)
 
@@ -330,6 +332,8 @@ class MainWindow(QMainWindow):
     self.show_position()
 
   def go_to_position(self):
+    if board.position is None:
+      return
     old_pos = board.position
     (new_pos, ok) = QInputDialog.getDouble(self, APP_NAME, "Target position:", value=old_pos, step=0.1)
     if ok and int(new_pos*10) != int(old_pos*10):
@@ -340,7 +344,3 @@ class MainWindow(QMainWindow):
     if changes:
       log.debug(f"changes:{changes}({len(changes)})")
       board.store_params(changes)
-
-  def board_param_stored(self, has_more):
-    if has_more:
-      board.store_next_param()
