@@ -18,6 +18,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
   on_command_end = Signal(CMD, str)
   on_data_received = Signal(list, list)
   on_stage_moved = Signal()
+  on_idle = Signal()
 
   _cmd: CMD|None = None
   _next_cmd: CMD|None = None
@@ -39,6 +40,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
   can_stop = False
 
   position: float|None = None
+  level: float = 0.0
 
   log: logging.Logger
 

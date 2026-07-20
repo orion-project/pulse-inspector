@@ -1,5 +1,6 @@
 import logging
 import time
+from random import random
 from typing import override
 
 from board import Board
@@ -17,11 +18,14 @@ JOG_SPEED = 100 # mkm/s
 JOG_DELTA = ms(100)
 SCAN_RANGE = 20.0
 POS_EPSILON = 0.1 # mkm
+IDLE_INTERVAL = ms(250)
+IDLE_LEVEL_MAX = 1000.0
+IDLE_LEVEL_DELTA = 250.0
 
 class VirtualBoard(Board):
   # Current position of the stage as it's known by the firmware
   # Unlike self.position wich is what is known by the software
-  _stage_position = 0 #
+  _stage_position = 0.0
 
   _cmd_error = None
   _params_received = 0
@@ -32,6 +36,7 @@ class VirtualBoard(Board):
     "p4": "1",
     "p5": "32"
   }
+  _idle_start: float|None = None
 
   def __init__(self):
     super().__init__(log, Config(\
@@ -87,7 +92,7 @@ class VirtualBoard(Board):
   @override
   def loop(self):
     while True:
-      time.sleep(0.001)
+      time.sleep(ms(10))
 
       self._lock.acquire()
       next_cmd = self._next_cmd
@@ -103,7 +108,8 @@ class VirtualBoard(Board):
             log.info(f"cancel:{self._cmd}")
           else:
             elapsed = time.perf_counter() - self._cmd_start
-            # Commands having timeout simulate their processing just by waiting for timeout
+            # For commands having a timeout set in the config
+            # simulate their processing just by waiting for the timeout
             if self._cmd_timeout > 0:
               if elapsed >= self._cmd_timeout:
                 if self._command_done():
@@ -113,6 +119,16 @@ class VirtualBoard(Board):
                 if self._command_done():
                   self._end_command(None)
             continue
+        elif self.connected:
+          tm = time.perf_counter()
+          if self._idle_start is None:
+            self._idle_start = tm
+          else:
+            elapsed = tm - self._idle_start
+            if elapsed > IDLE_INTERVAL:
+              self._process_idle()
+              self._idle_start = tm
+              continue
 
         if self._cmd_error:
           err = self._cmd_error
@@ -145,6 +161,12 @@ class VirtualBoard(Board):
 
   def _position_str(self):
     return f"pos={self.position}, stage_pos={self._stage_position:.2f}"
+
+  def _process_idle(self):
+    self.level  = abs(self.level + IDLE_LEVEL_DELTA * (random() - 0.5))
+    if self.level > IDLE_LEVEL_MAX:
+      self.level = IDLE_LEVEL_MAX - IDLE_LEVEL_DELTA * random()
+    self.on_idle.emit()
 
   def _prepare_command(self):
     # Do some stuff before command start

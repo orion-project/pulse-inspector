@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
     board.on_command_end.connect(self.board_command_end)
     board.on_data_received.connect(self.plot.draw_graph)
     board.on_stage_moved.connect(self.show_position)
+    board.on_idle.connect(self.show_level)
 
     self.load_settings()
     self.show_connection()
@@ -311,6 +312,10 @@ class MainWindow(QMainWindow):
       self.but_position_off.setFixedWidth(w)
     self.but_position_on.setText(text)
     self.but_position_off.setText(text)
+    self.show_level()
+
+  def show_level(self):
+    log.debug(f"LEVEL:{board.level}")
 
   def update_actions(self):
     self.act_connect.setEnabled(board.can_connect and not board.connected)

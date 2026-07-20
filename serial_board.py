@@ -184,8 +184,9 @@ class SerialBoard(Board):
       if len(res) == 3:
         # Next scan point received, e.g. `OK 0.70 911.82`
         self.position = float(res[-2])
+        self.level = float(res[-1])
         self._profile_x.append(self.position)
-        self._profile_y.append(float(res[-1]))
+        self._profile_y.append(self.level)
         self.on_stage_moved.emit()
         self._cmd_start = time.perf_counter()
         return False # Continue scanning
