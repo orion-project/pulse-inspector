@@ -33,6 +33,7 @@ class SerialBoard(Board):
   def loop(self):
     answer_ok = self.config.value(str, "commands/answer_ok", None)
     answer_error = self.config.value(str, "commands/answer_error", None)
+    answer_idle = self.config.value(str, "commands/answer_idle", None)
 
     while True:
       time.sleep(0.001)
@@ -65,10 +66,20 @@ class SerialBoard(Board):
                 elif ans.startswith(answer_error):
                   log.debug(f"receive:{ans}")
                   self._end_command(self.config.error_text(ans))
-                else: # Some debug output from the board
+                elif ans.startswith(answer_idle):
+                  self._process_idle(ans)
+                else: # Some debug output from the command
                   if self._cmd_log_answer:
                     log.debug(f"receive:{ans}")
               continue
+        elif self._uart:
+          ans = self._uart.readline().decode('utf-8').strip()
+          if ans:
+            if ans.startswith(answer_idle):
+              self._process_idle(ans)
+            else: # Some debug output from the idle
+              if self._cmd_log_answer:
+                log.debug(f"receive:{ans}")
 
         if next_cmd:
           self._lock.acquire()
@@ -215,6 +226,15 @@ class SerialBoard(Board):
           return False
         raise Exception("Unexpected command result")
     return True
+
+  def _process_idle(self, ans: str):
+    res = ans.split(" ")
+    if len(res) == 2:
+      # Idle signal level received, e.g. `IDL 42.24`
+      self.level = float(res[-1])
+      self.on_idle.emit()
+    else:
+      raise Exception("Unexpected idle result")
 
   @override
   def debug_simulate_disconnection(self):

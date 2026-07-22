@@ -92,6 +92,7 @@ class Board(QObject, metaclass=QObjectAbstractMeta):
     self.connected = ok
     self.homed = False
     self.position = None
+    self.level = 0.0
     self.can_connect = True
     self.can_home = ok
     self.can_jog = ok

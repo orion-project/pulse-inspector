@@ -21,6 +21,11 @@
 #define SCAN_PROFILE_NOISE 0.05
 #define SCAN_PROFILE_WIDTH 15
 
+#define IDLE_INTERVAL 250
+#define IDLE_LEVEL_MAX 1000.0
+#define IDLE_LEVEL_DELTA 100.0
+#define IDLE_ANS "IDL"
+
 #define ANS_OK "OK"
 #define ANS_ERR "ERR"
 #define ERR_OK 0

@@ -31,6 +31,9 @@ struct {
 bool homed = false;
 float position = 0;
 
+float idleLevel = 0;
+unsigned long idleStart = 0;
+
 // "Persistent" memory
 struct Param
 {
@@ -65,6 +68,15 @@ void loop()
     auto elapsed = millis() - cmdStart;
     if (elapsed >= cmdDuration)
       endCommand(false);
+  }
+  else
+  {
+    auto elapsed = millis() - idleStart;
+    if (elapsed >= IDLE_INTERVAL)
+    {
+      sendIdleLevel();
+      idleStart = millis();
+    }
   }
 
   // Start processing serial here
@@ -416,4 +428,20 @@ void simulateError()
   cmdDuration = 0;
   showCommand();
   sendError(ERR_UNKNOWN);
+}
+
+void sendIdleLevel()
+{
+  // If the is no free space in the output buffer
+  // this means Pulse Ispector is not connected and doesn't read the signal level
+  // so there is no even need to calculate it
+  if (!Serial.availableForWrite())
+    return;
+
+  idleLevel  = abs(idleLevel + random(-IDLE_LEVEL_DELTA, IDLE_LEVEL_DELTA)/2.0);
+  if (idleLevel > IDLE_LEVEL_MAX)
+    idleLevel = IDLE_LEVEL_MAX - random(0, IDLE_LEVEL_DELTA);
+  Serial.print(IDLE_ANS);
+  Serial.print(' ');
+  Serial.println(idleLevel);
 }
