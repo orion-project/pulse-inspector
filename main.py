@@ -15,6 +15,7 @@ def main():
   parser.add_argument('--dev', action='store_true', help='Enable development mode')
   parser.add_argument('--virtual', action='store_true', help='Use virtual board')
   parser.add_argument('--config', help='Board config file name')
+  parser.add_argument('--scan', help='Previously saved scan file to plot the profile from')
   args = parser.parse_args()
 
   app = QApplication(sys.argv)
@@ -40,7 +41,7 @@ def main():
 
   # Import MainWindow after the board gets initialized
   from main_window import MainWindow
-  window = MainWindow(dev_mode=args.dev)
+  window = MainWindow(dev_mode=args.dev, scan_file=args.scan)
   window.show()
   sys.exit(app.exec())
 
