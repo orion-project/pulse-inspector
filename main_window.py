@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
   action_handlers = {}
   checkable_actions = {}
 
-  def __init__(self, dev_mode=False):
+  def __init__(self, dev_mode=False, scan_file=""):
     super().__init__()
 
     self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
@@ -28,6 +28,8 @@ class MainWindow(QMainWindow):
     self.dev_mode = dev_mode
 
     self.plot = Plot(self)
+    self.plot.main_window = self
+
     self.setCentralWidget(self.plot)
 
     self.create_menu_bar()
@@ -43,7 +45,11 @@ class MainWindow(QMainWindow):
     self.load_settings()
     self.show_connection()
     self.update_actions()
-    self.plot.draw_graph(*make_sample_profile())
+
+    if scan_file:
+      self.plot.open_graph(scan_file)
+    elif self.dev_mode:
+      self.plot.draw_graph(*make_sample_profile(), auto_save=False)
 
   def load_settings(self):
     # Load checked options
@@ -162,18 +168,23 @@ class MainWindow(QMainWindow):
     A("Autosave Every Scan", self.plot.set_autosave, m, check=True, id="autosave")
     A("Choose Autosave Path...", self.plot.choose_autosave_dir, m)
 
+    m = self.menuBar().addMenu("Fit")
+    A("Gaussian", self.plot.set_fit, m, arg=FIT.gauss, group="fit_type|gauss")
+    A("Lorentzian", self.plot.set_fit, m, arg=FIT.lorentz, group="fit_type|lorentz")
+    A("sech²", self.plot.set_fit, m, arg=FIT.sech2, group="fit_type|sech")
+    A("None", self.plot.set_fit, m, arg=FIT.none, group="fit_type|none")
+    m.addSeparator()
+    A("Fit Over Subrange", self.plot.set_fit_subrange, m, check=True, checked=False, id="fit_subrange")
+    A("Set Fit Subrange...", self.plot.choose_fit_subrange, m)
+    m.addSeparator()
+    A("Adjust to Background", self.plot.set_shift_fit_bgnd, m, check=True, checked=True, id="shift_fit_bgnd")
+
     m = self.menuBar().addMenu("Plot")
     A("X - Show Delay", self.plot.show_x_delay, m, arg=True, group="plot_x|delay")
     A("X - Show Position", self.plot.show_x_delay, m, arg=False, group="plot_x|pos")
     m.addSeparator()
     A("Y - Show Raw Values", self.plot.show_y_norm, m, arg=False, group="plot_y|raw")
     A("Y - Show Normalized", self.plot.show_y_norm, m, arg=True, group="plot_y|norm")
-    m.addSeparator()
-    A("Gaussian Fit", self.plot.set_fit, m, arg=FIT.gauss, group="fit_type|gauss")
-    A("Lorentzian Fit", self.plot.set_fit, m, arg=FIT.lorentz, group="fit_type|lorentz")
-    A("sech² Fit", self.plot.set_fit, m, arg=FIT.sech2, group="fit_type|sech")
-    A("No Fit", self.plot.set_fit, m, arg=FIT.none, group="fit_type|none")
-    A("Adjust Fit to Background", self.plot.set_shift_fit_bgnd, m, check=True, checked=True, id="shift_fit_bgnd")
     m.addSeparator()
     A("Zoom Both Axes", self.plot.set_zoom_mode, m, arg="xy", group="zoom_type|xy", icon="zoom")
     A("Zoom Only X-axis", self.plot.set_zoom_mode, m, arg="x", group="zoom_type|x", icon="zoom_x")

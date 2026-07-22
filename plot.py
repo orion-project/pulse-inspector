@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 from collections import namedtuple
 import os
 from datetime import datetime
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 from PySide6.QtCore import QStandardPaths
 
 # There are tons of debug messages about found fonts
@@ -17,8 +17,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.figure import Figure
 
-from consts import APP_NAME
+from consts import APP_NAME, FitSubrangeMode
 from utils import app_settings, calc_background_level
+from fit_subrange_dialog import FitSubrangeDialog
 
 Point = namedtuple('Point', 'x y')
 
@@ -46,6 +47,12 @@ class Plot(FigureCanvas):
   _autosave = False
   _autosave_dir = ''
   _shift_fit_bgnd = True
+  _fit_subrange = False
+  _fit_subrange_mode = FitSubrangeMode.percent
+  _fit_subrange_value: float = 10
+
+  # To use as a parent for dialogs
+  main_window: QWidget|None = None
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -75,11 +82,20 @@ class Plot(FigureCanvas):
     self._shift_fit_bgnd = on
     self._replot()
 
-  def draw_graph(self, x, y):
+  def set_fit_subrange(self, on):
+    self._fit_subrange = on
+    self._replot()
+
+  def open_graph(self, file_path: str):
+    x, y = np.loadtxt(file_path, usecols=(0, 1), unpack=True)
+    self.draw_graph(x, y, auto_save=False)
+
+  def draw_graph(self, x, y, auto_save=True):
     self.x_data = np.array(x)
     self.y_data = np.array(y)
     self._replot()
-    self._save_data_auto()
+    if auto_save:
+      self._save_data_auto()
 
   def _is_empty(self):
     return self.x_data is None
@@ -147,10 +163,38 @@ class Plot(FigureCanvas):
       fit_label = "sech² Fit"
 
     try:
-      amplitude_guess = np.max(self.ys)
-      center_guess = np.mean(self.xs)
-      width_guess = (np.max(self.xs) - np.min(self.xs)) / 6
-      [amplitude, center, width], pcov = curve_fit(fit_func, self.xs, self.ys,
+      fit_xs = self.xs
+      fit_ys = self.ys
+      if self._fit_subrange:
+        # Select central part of the source data for fitting
+        i_beg = None
+        i_end = None
+        if self._fit_subrange_mode == FitSubrangeMode.percent:
+          percent = min(max(self._fit_subrange_value, 1), 100)
+          data_count = len(self.xs)
+          i_beg = int(data_count * (100 - percent) / 200)
+          i_end = int(data_count * (100 + percent) / 200)
+        else:
+          offset = abs(self._fit_subrange_value)
+          if self._fit_subrange_mode == FitSubrangeMode.delay:
+            # convert fs -> mkm (self.sx is always in mkm)
+            offset *= LIGHT_SPEED
+          for i in range(len(self.xs)):
+            v = abs(self.xs[i])
+            if i_beg is None:
+              if v <= offset:
+                i_beg = i
+            elif v >= offset:
+                i_end = i
+                break
+        if i_beg is not None and i_end is not None:
+          fit_xs = self.xs[i_beg : i_end]
+          fit_ys = self.ys[i_beg : i_end]
+
+      amplitude_guess = np.max(fit_ys)
+      center_guess = np.mean(fit_xs)
+      width_guess = (np.max(fit_xs) - np.min(fit_xs)) / 6
+      [amplitude, center, width], pcov = curve_fit(fit_func, fit_xs, fit_ys,
                             p0=[amplitude_guess, center_guess, width_guess],
                             maxfev=10000)
 
@@ -166,9 +210,9 @@ class Plot(FigureCanvas):
 
       if self.show_norm:
         if self.fit_type != FIT.none:
-          max = np.max(self.y_fit)
-          self.y_fit = self.y_fit / max
-          self.ys = self.ys / max
+          max_y = np.max(self.y_fit)
+          self.y_fit = self.y_fit / max_y
+          self.ys = self.ys / max_y
         else:
           self.ys = self.ys / amplitude_guess
 
@@ -344,7 +388,9 @@ class Plot(FigureCanvas):
       return None
 
   def load_settings(self, s):
-    self._autosave_dir = s.value("autosave_dir")
+    self._autosave_dir = str(s.value("autosave_dir"))
+    self._fit_subrange_mode = FitSubrangeMode[str(s.value("fit_subrange_mode", "percent"))]
+    self._fit_subrange_value = float(s.value("fit_subrange_value", 10))
     # self._autosave is loaded in main window as part of generic options loading
 
   def set_autosave(self, on):
@@ -358,6 +404,17 @@ class Plot(FigureCanvas):
       self._autosave_dir = data_dir
       app_settings().setValue("autosave_dir", data_dir)
       log.info(f"Autosave dir is {data_dir}")
+
+  def choose_fit_subrange(self):
+    dlg = FitSubrangeDialog(self.main_window)
+    res = dlg.run(self._fit_subrange_mode, self._fit_subrange_value)
+    if res is not None:
+      self._fit_subrange_mode = res[0]
+      self._fit_subrange_value = res[1]
+      s = app_settings()
+      s.setValue("fit_subrange_mode", self._fit_subrange_mode.name)
+      s.setValue("fit_subrange_value", self._fit_subrange_value)
+      self._replot()
 
   def _make_data_filename(self, data_dir):
     timestamp = datetime.now().isoformat(timespec="milliseconds").replace(":", "-")
