@@ -33,6 +33,9 @@ class FitSubrangeDialog(QDialog):
     layout.addStretch()
     layout.addWidget(buttons)
 
+    self.editor.selectAll()
+    self.editor.setFocus()
+
   def run(self, mode: FitSubrangeMode, value: float) -> tuple[FitSubrangeMode, float]|None:
     self.flag_percent.setChecked(mode == FitSubrangeMode.percent)
     self.flag_offset.setChecked(mode == FitSubrangeMode.offset)

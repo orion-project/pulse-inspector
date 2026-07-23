@@ -9,6 +9,7 @@ class LevelGauge:
 
   def __init__(self):
     self.widget = LinearGauge()
+    self.widget.show_zero_tick = False
 
   def set_value(self, v: float):
     self.widget.value = v
@@ -19,6 +20,7 @@ class LevelGauge:
 
   def use_auto_max(self, on: bool):
     self.auto_max = on
+    self.widget.use_nice_max = on
     if on:
       self.reset_auto_max()
     else:

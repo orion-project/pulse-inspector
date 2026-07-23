@@ -57,7 +57,7 @@ class LinearGauge(QWidget):
   margin_side: int = 15
   border_width: float = 1
   border_radius: int = 0
-  tick_count: int = 5
+  tick_count: int = 6
   tick_position = TickPosition.LEFT
   tick_margin: int = 0 # Distance between bar and ticks
   label_margin: int = 3 # Distance between ticks and labels
@@ -76,9 +76,10 @@ class LinearGauge(QWidget):
   tick_color = QColor("#121212")
   min_auto_size: int = 80
   auto_size = True
+  use_nice_max = True
+  show_zero_tick = True
 
-  _display_min = 0.0
-  _display_max = 100.0
+  _nice_max = 100.0
   _major_tick_spacing = 0.0
   _minor_tick_spacing = 0.0
 
@@ -111,7 +112,7 @@ class LinearGauge(QWidget):
     self._minor_tick_pen = QPen(self.tick_color, self.minor_tick_width)
 
   def recalc_scale(self):
-    (self._display_min, self._display_max, self._major_tick_spacing, self._minor_tick_spacing) = \
+    _, self._nice_max, self._major_tick_spacing, self._minor_tick_spacing = \
       calc_nice_scale(0, self.max_value, self.tick_count)
 
     if self.auto_size:
@@ -124,7 +125,7 @@ class LinearGauge(QWidget):
           label_w = 0
           fm = QFontMetrics(self.font())
           tick = 0
-          display_range = self._display_max - self._display_min
+          display_range, _ = self._get_display_range()
           while tick <= display_range:
             if (w := fm.boundingRect(self._format_label(tick)).width()) > label_w:
               label_w = w
@@ -156,16 +157,16 @@ class LinearGauge(QWidget):
       self._draw_horizontal_gauge(painter)
 
   def _get_display_range(self) -> tuple[float, float]:
-    display_range = self._display_max - self._display_min
+    display_range = self._nice_max if self.use_nice_max else self.max_value
     value = max(0, self.value)
-    value_ratio = min(1, (value - self._display_min) / display_range)
+    value_ratio = min(1, value / display_range)
     return (display_range, value_ratio)
 
   def _draw_vertical_gauge(self, painter):
     left_ticks = self.tick_position == TickPosition.LEFT
     w, h = self.width(), self.height()
     margin_top, margin_bot = self.margin_beg, self.margin_end
-    gauge_h = h - margin_top - margin_bot
+    bar_h = h - margin_top - margin_bot
     if left_ticks:
       bar_x = w - self.bar_size - self.margin_side
     else:
@@ -174,21 +175,21 @@ class LinearGauge(QWidget):
     # Bar
     painter.setPen(self._bar_pen)
     painter.setBrush(self._bar_brush)
-    self._draw_rect(painter, bar_x, margin_top, self.bar_size, gauge_h)
+    self._draw_rect(painter, bar_x, margin_top, self.bar_size, bar_h)
 
     # Fill (Grows bottom to top)
     display_range, value_ratio = self._get_display_range()
-    fill_h = gauge_h * value_ratio
+    fill_h = bar_h * value_ratio
 
     if fill_h > 0:
       if self.fill_brush:
         painter.setBrush(self.fill_brush)
       else:
-        gradient = QLinearGradient(bar_x, margin_top, bar_x, margin_top + gauge_h)
+        gradient = QLinearGradient(bar_x, margin_top, bar_x, margin_top + bar_h)
         gradient.setColorAt(0.0, self.fill_color_end)
         gradient.setColorAt(1.0, self.fill_color_start)
         painter.setBrush(QBrush(gradient))
-      self._draw_rect(painter, bar_x, margin_top + gauge_h - fill_h, self.bar_size, fill_h)
+      self._draw_rect(painter, bar_x, margin_top + bar_h - fill_h, self.bar_size, fill_h)
 
     # Ticks and Labels
     if self._major_tick_spacing > 0:
@@ -219,25 +220,30 @@ class LinearGauge(QWidget):
       painter.setFont(self._label_font)
 
       def pixel(v: float) -> int:
-        return margin_top + gauge_h - int(v / display_range * gauge_h)
+        return margin_top + bar_h - int(v / display_range * bar_h)
 
       major_tick = 0
       while major_tick <= display_range:
         major_y = pixel(major_tick)
+        if major_y < margin_top:
+          break
 
         if draw_major_ticks:
-          painter.setPen(self._major_tick_pen)
-          painter.drawLine(major_x1, major_y, major_x2, major_y)
+          if self.show_zero_tick or major_tick > 0:
+            painter.setPen(self._major_tick_pen)
+            painter.drawLine(major_x1, major_y, major_x2, major_y)
 
           if draw_minor_ticks and major_tick < display_range:
             painter.setPen(self._minor_tick_pen)
             minor_tick = self._minor_tick_spacing
             while minor_tick < self._major_tick_spacing:
               minor_y = pixel(major_tick + minor_tick)
+              if minor_y <= margin_top:
+                break
               painter.drawLine(minor_x1, minor_y, minor_x2, minor_y)
               minor_tick += self._minor_tick_spacing
 
-        if draw_labels:
+        if draw_labels and (self.show_zero_tick or major_tick > 0):
           painter.setPen(self._label_pen)
           painter.drawText(QRect(label_x, major_y, 0, 0),
                            label_flags, self._format_label(major_tick))
@@ -253,7 +259,7 @@ class LinearGauge(QWidget):
     top_ticks = self.tick_position == TickPosition.TOP
     w, h = self.width(), self.height()
     margin_left, margin_right = self.margin_beg, self.margin_end
-    gauge_w = w - margin_left - margin_right
+    bar_w = w - margin_left - margin_right
     full_h = self.bar_size + \
       self.tick_margin + self._tick_length() + \
       self.label_margin + self.label_size
@@ -261,21 +267,22 @@ class LinearGauge(QWidget):
       bar_y = int((h + full_h)/2) - self.bar_size
     else:
       bar_y = int((h - full_h)/2)
+    bar_right = margin_left + bar_w
 
     # Bar
     painter.setPen(self._bar_pen)
     painter.setBrush(self._bar_brush)
-    self._draw_rect(painter, margin_left, bar_y, gauge_w, self.bar_size)
+    self._draw_rect(painter, margin_left, bar_y, bar_w, self.bar_size)
 
     # Fill (Grows left to right)
     display_range, value_ratio = self._get_display_range()
-    fill_w = gauge_w * value_ratio
+    fill_w = bar_w * value_ratio
 
     if fill_w > 0:
       if self.fill_brush:
         painter.setBrush(self.fill_brush)
       else:
-        gradient = QLinearGradient(margin_left, bar_y, margin_left + gauge_w, bar_y)
+        gradient = QLinearGradient(margin_left, bar_y, margin_left + bar_w, bar_y)
         gradient.setColorAt(0.0, self.fill_color_start)
         gradient.setColorAt(1.0, self.fill_color_end)
         painter.setBrush(QBrush(gradient))
@@ -310,25 +317,30 @@ class LinearGauge(QWidget):
       painter.setFont(self._label_font)
 
       def pixel(v: float) -> int:
-        return margin_left + int(v / display_range * gauge_w)
+        return margin_left + int(v / display_range * bar_w)
 
       major_tick = 0
       while major_tick <= display_range:
         major_x = pixel(major_tick)
+        if major_x > bar_right:
+          break
 
         if draw_major_ticks:
-          painter.setPen(self._major_tick_pen)
-          painter.drawLine(major_x, major_y1, major_x, major_y2)
+          if self.show_zero_tick or major_tick > 0:
+            painter.setPen(self._major_tick_pen)
+            painter.drawLine(major_x, major_y1, major_x, major_y2)
 
           if draw_minor_ticks and major_tick < display_range:
             painter.setPen(self._minor_tick_pen)
             minor_tick = self._minor_tick_spacing
             while minor_tick < self._major_tick_spacing:
               minor_x = pixel(major_tick + minor_tick)
+              if minor_x >= bar_right:
+                break
               painter.drawLine(minor_x, minor_y1, minor_x, minor_y2)
               minor_tick += self._minor_tick_spacing
 
-        if draw_labels:
+        if draw_labels and (self.show_zero_tick or major_tick > 0):
           painter.setPen(self._label_pen)
           painter.drawText(QRect(major_x, label_y, 0, self.label_size),
                            label_flags, self._format_label(major_tick))
@@ -414,6 +426,7 @@ if __name__ == "__main__":
         self.prop_editors[prop] = ed
 
       prop_float("max_value")
+      prop_bool("use_nice_max")
       prop_int("bar_size", 0, 50)
       prop_int("widget_size", 0, 500)
       prop_int("min_auto_size", 0, 500)
@@ -424,6 +437,7 @@ if __name__ == "__main__":
       prop_int("border_radius", 0, 10)
       prop_int("tick_count", 2, 20)
       prop_int("tick_margin", 0, 10)
+      prop_bool("show_zero_tick")
       prop_int("label_margin", 0, 10)
       prop_int("label_size", 0, 40)
       prop_int("major_tick_length", 0, 20)
