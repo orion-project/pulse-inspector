@@ -1,6 +1,6 @@
 history:
 - version: 0.0.6
-  date: 2026-07-??
+  date: 2026-07-23
   changes:
   - text: Can plot profile from previously saved measurement file via the cmd arg --scan
   - text: Can fit over central subrange of the full profile
