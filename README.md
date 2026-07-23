@@ -8,7 +8,7 @@ The actual custom electronics implementation is outside the scope of this reposi
 
 ![](./docs/drawing.svg)
 
-![](./docs/screen_0.0.1.png)
+![](./docs/screen_0.0.6.png)
 
 ## Development
 
