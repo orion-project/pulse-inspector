@@ -1,14 +1,15 @@
 import logging
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QFontMetrics
-from PySide6.QtWidgets import (
+from PySide6.QtWidgets import (QWidget, QHBoxLayout,
   QLabel, QMainWindow, QMessageBox, QStatusBar, QToolBar, QToolButton, QInputDialog)
 
 from board import board
 from board_params_dialog import BoardParamsDialog
 from consts import APP_NAME, APP_VERSION, APP_PAGE, CMD
+from level_gauge import LevelGauge
 from plot import Plot, FIT
-from utils import load_icon, app_settings, VisibilityEventFilter, make_sample_profile
+from utils import load_icon, app_settings, VisibilityEventFilter, make_sample_profile, set_dialog_parent
 
 log = logging.getLogger(__name__)
 
@@ -18,19 +19,27 @@ BUTTON_POS_MIN_W = 80
 class MainWindow(QMainWindow):
   action_groups = {}
   action_handlers = {}
-  checkable_actions = {}
+  checkable_action_handlers = {}
 
   def __init__(self, dev_mode=False, scan_file=""):
     super().__init__()
+
+    set_dialog_parent(self)
 
     self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
 
     self.dev_mode = dev_mode
 
     self.plot = Plot(self)
-    self.plot.main_window = self
+    self.gauge = LevelGauge()
 
-    self.setCentralWidget(self.plot)
+    central_widget = QWidget()
+    central_layout = QHBoxLayout(central_widget)
+    central_layout.setContentsMargins(0, 0, 0, 0)
+    central_layout.setSpacing(0)
+    central_layout.addWidget(self.plot)
+    central_layout.addWidget(self.gauge.widget)
+    self.setCentralWidget(central_widget)
 
     self.create_menu_bar()
     self.create_tool_bar()
@@ -69,14 +78,15 @@ class MainWindow(QMainWindow):
         a.setChecked(True)
         a.trigger()
     # Load checked flags
-    for action in self.checkable_actions:
+    for action, handler in self.checkable_action_handlers.items():
       key = action.objectName()
       if key and s.contains(key):
         is_checked = s.value(key) == "true"
         action.setChecked(is_checked)
-        self.checkable_actions[action](is_checked)
+        handler(is_checked)
     # Load component settings
     self.plot.load_settings(s)
+    self.gauge.load_settings(s)
 
   def _action_handler(self):
     (handler, arg) = self.action_handlers[self.sender()]
@@ -91,7 +101,8 @@ class MainWindow(QMainWindow):
       action: QAction = sender
       if action.objectName():
         app_settings().setValue(action.objectName(), action.isChecked())
-      self.checkable_actions[action](action.isChecked())
+      handler = self.checkable_action_handlers[action]
+      handler(action.isChecked())
 
   def create_menu_bar(self):
 
@@ -124,7 +135,7 @@ class MainWindow(QMainWindow):
         if "id" in kwargs:
           a.setObjectName(kwargs["id"])
         a.triggered.connect(self._checkable_action_triggered)
-        self.checkable_actions[a] = handler
+        self.checkable_action_handlers[a] = handler
         handler_added = True
       if not handler_added:
         if "arg" in kwargs:
@@ -190,6 +201,15 @@ class MainWindow(QMainWindow):
     A("Zoom Only X-axis", self.plot.set_zoom_mode, m, arg="x", group="zoom_type|x", icon="zoom_x")
     A("Zoom Only Y-axis", self.plot.set_zoom_mode, m, arg="y", group="zoom_type|y", icon="zoom_y")
     A("Reset Zoom", self.plot.reset_zoom, m, key="Ctrl+0", icon="zoom_0")
+
+    m = self.menuBar().addMenu("Signal")
+    A("Show Level Gauge", self.gauge.widget.setVisible, m, check=True, checked=True, id="gauge_on")
+    m.addSeparator()
+    A("Top Limit - Auto Increase", self.gauge.use_auto_max, m, arg=True, group="gauge_max|auto")
+    A("Top Limit - Fixed Manual", self.gauge.use_auto_max, m, arg=False, group="gauge_max|manual")
+    m.addSeparator()
+    A("Reset Auto Top Limit", self.gauge.reset_auto_max, m)
+    A("Set Manual Top Limit...", self.gauge.choose_manual_max, m)
 
     if self.dev_mode:
       m = self.menuBar().addMenu("Debug")
@@ -326,7 +346,8 @@ class MainWindow(QMainWindow):
     self.show_level()
 
   def show_level(self):
-    log.debug(f"LEVEL:{board.level}")
+    if self.gauge.widget.isVisible():
+      self.gauge.set_value(board.level)
 
   def update_actions(self):
     self.act_connect.setEnabled(board.can_connect and not board.connected)

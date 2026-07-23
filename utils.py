@@ -5,8 +5,18 @@ import sys
 import numpy as np
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QObject, QEvent, QSettings
+from PySide6.QtWidgets import QInputDialog, QMessageBox, QWidget
 
 _APP_DIR: str = ''
+
+# To use as a parent for dialogs
+_DIALOG_PARENT: QWidget|None = None
+
+from consts import APP_NAME
+
+def set_dialog_parent(w: QWidget):
+  global _DIALOG_PARENT
+  _DIALOG_PARENT = w
 
 def app_dir(file_name = None) -> str:
   global _APP_DIR
@@ -115,6 +125,16 @@ class VisibilityEventFilter(QObject):
       self.target.hide()
     return super().eventFilter(obj, event)
 
-def app_settings():
+def app_settings() -> QSettings:
   s = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope, "orion-project.org", "pulse-inspector")
   return s
+
+def input_float_dlg(prompt: str, value: float) -> float|None:
+  text, ok = QInputDialog.getText(_DIALOG_PARENT, APP_NAME, prompt, text=str(value))
+  if not ok:
+    return None
+  try:
+    return float(text)
+  except ValueError:
+    QMessageBox.critical(_DIALOG_PARENT, APP_NAME, "Invalid numeric value")
+    return None

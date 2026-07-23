@@ -6,7 +6,7 @@ from collections import namedtuple
 import os
 from datetime import datetime
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
-from PySide6.QtCore import QStandardPaths
+from PySide6.QtCore import QStandardPaths, QSettings
 
 # There are tons of debug messages about found fonts
 # that makes the global DEBUG level totally useless
@@ -50,9 +50,6 @@ class Plot(FigureCanvas):
   _fit_subrange = False
   _fit_subrange_mode = FitSubrangeMode.percent
   _fit_subrange_value: float = 10
-
-  # To use as a parent for dialogs
-  main_window: QWidget|None = None
 
   def __init__(self, parent=None):
     self.fig = Figure(figsize=(8, 6), dpi=100)
@@ -387,10 +384,10 @@ class Plot(FigureCanvas):
       log.exception("Failed to calculate measured FWHM")
       return None
 
-  def load_settings(self, s):
+  def load_settings(self, s: QSettings):
     self._autosave_dir = str(s.value("autosave_dir"))
     self._fit_subrange_mode = FitSubrangeMode[str(s.value("fit_subrange_mode", "percent"))]
-    self._fit_subrange_value = float(s.value("fit_subrange_value", 10))
+    self._fit_subrange_value = float(str(s.value("fit_subrange_value", 10)))
     # self._autosave is loaded in main window as part of generic options loading
 
   def set_autosave(self, on):
@@ -406,7 +403,7 @@ class Plot(FigureCanvas):
       log.info(f"Autosave dir is {data_dir}")
 
   def choose_fit_subrange(self):
-    dlg = FitSubrangeDialog(self.main_window)
+    dlg = FitSubrangeDialog(self)
     res = dlg.run(self._fit_subrange_mode, self._fit_subrange_value)
     if res is not None:
       self._fit_subrange_mode = res[0]

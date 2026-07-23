@@ -1,8 +1,10 @@
 history:
 - version: 0.0.6
-  date:
+  date: 2026-07-??
+  changes:
   - text: Can plot profile from previously saved measurement file via the cmd arg --scan
   - text: Can fit over central subrange of the full profile
+  - text: Live signal level indicator
 
 - version: 0.0.5
   date: 2026-07-17
